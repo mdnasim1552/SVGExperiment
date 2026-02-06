@@ -8,6 +8,22 @@
     <link rel="stylesheet" href="index.css">
 </head>
 <body>
+    <div id="vertex-menu" class="context-menu">
+        <ul>
+            <li data-action="delete">Delete vertex</li>
+            <li data-action="add-before">Add vertex before</li>
+            <li data-action="add-after">Add vertex after</li>
+        </ul>
+    </div>
+    <div id="link-color-menu" class="context-menu">
+        <ul>
+            <li data-color="#ff0000">Red</li>   
+            <li data-color="#00aa00">Green</li> 
+            <li data-color="#0055ff">Blue</li>  
+            <li data-color="#000000">Black</li>
+        </ul>
+    </div>
+
     <div id="paper"></div>
     <script src="https://cdn.jsdelivr.net/npm/@joint/core/dist/joint.js"></script>
     <script type="module" src="index.js"></script>

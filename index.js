@@ -233,7 +233,7 @@ class Branch extends joint.dia.Link {
                 // we get the points that represent the outline of the stroke.
                 const outlinePoints = getStroke(points, {
                     size: attrs['organic-stroke-size'] || 20,
-                    thinning: 0.5,
+                    thinning: 0,
                     simulatePressure: false,
                     last: true,
                 });
@@ -378,6 +378,236 @@ const paper = new joint.dia.Paper({
         },
     },
 });
+paper.el.addEventListener('contextmenu', (evt) => {
+    // Stop browser menu immediately
+    evt.preventDefault();
+    evt.stopPropagation();
+
+    // Find the JointJS view under this event
+    const view = paper.findView(evt.target);
+
+    if (!view) return;
+
+    // Only proceed if it’s a link
+    if (!view.model.isLink()) return;
+    menuOpen = true;
+    const toolsView = new joint.dia.ToolsView({
+        tools: [new joint.linkTools.Vertices()]
+    });
+    view.addTools(toolsView);
+    // Get the vertex index under the mouse
+    //const vertexIndex = view.getVertexIndex(evt.target);
+
+    const point = paper.clientToLocalPoint({
+        x: evt.clientX,
+        y: evt.clientY
+    });
+
+    const vertexIndex = getVertexIndexFromMouse(view, paper, evt);
+
+
+    //if (vertexIndex === -1) return; // Not a vertex
+    if (vertexIndex === -1) {
+        // 👉 Right-click on link body
+        // showLinkColorMenu({
+        //     x: evt.clientX,
+        //     y: evt.clientY,
+        //     linkView: view
+        // });
+        const segmentIndex = getNearestSegmentIndex(view, paper, evt);
+        if (segmentIndex !== -1) {
+            showLinkColorMenu({
+                x: evt.clientX,
+                y: evt.clientY,
+                linkView: view,
+                segmentIndex
+            });
+        }
+    }else{
+        // Show your custom menu
+        showVertexMenu({
+            x: evt.clientX,
+            y: evt.clientY,
+            linkView: view,
+            vertexIndex
+        });
+    }
+});
+function distancePointToSegment(p, a, b) {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    if (dx === 0 && dy === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+    const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx*dx + dy*dy);
+    const clampedT = Math.max(0, Math.min(1, t));
+    const closestX = a.x + clampedT * dx;
+    const closestY = a.y + clampedT * dy;
+    return Math.hypot(p.x - closestX, p.y - closestY);
+}
+function getNearestSegmentIndex(linkView, paper, evt, tolerance = 15) {
+    const vertices = linkView.model.vertices() || [];
+    const points = [linkView.sourcePoint, ...vertices, linkView.targetPoint];
+    const mouse = paper.clientToLocalPoint({ x: evt.clientX, y: evt.clientY });
+    let minDist = Infinity;
+    let segmentIndex = -1;
+
+    for (let i = 0; i < points.length - 1; i++) {
+        const dist = distancePointToSegment(mouse, points[i], points[i+1]);
+        if (dist < tolerance && dist < minDist) {
+            minDist = dist;
+            segmentIndex = i;
+        }
+    }
+    return segmentIndex;
+}
+// === Segment coloring ===
+function colorSegment(linkView, segmentIndex, color) {
+    const originalLink = linkView.model;
+    const vertices = originalLink.vertices() || [];
+
+    const points = [
+        linkView.sourcePoint,
+        ...vertices,
+        linkView.targetPoint
+    ];
+
+    const start = points[segmentIndex];
+    const end = points[segmentIndex + 1];
+
+    const strokeWidth =
+        originalLink.attr('line/organicStrokeSize') ||
+        originalLink.attr('line/stroke-width') ||
+        3;
+
+    const overlay = new Branch({
+        source: { x: start.x, y: start.y },
+        target: { x: end.x, y: end.y },
+
+        // // 🔴 VERY IMPORTANT
+        // router: null,
+        // connector: { name: 'curve' },
+        // connectionPoint: null,
+
+        attrs: {
+            line: {
+                fill:color,
+                organicStrokeSize:originalLink.attr('line/organicStrokeSize')
+                // stroke: color,
+                // 'stroke-width': strokeWidth,
+                // 'stroke-linecap': 'butt',   // no rounding
+                // 'stroke-linejoin': 'miter',
+                //'pointer-events': 'none'   // no interaction padding
+            }
+        }
+    });
+
+    // overlay.set({
+    //     z: originalLink.get('z') + 1,
+    //     interactive: false   // no tools, no hover
+    // });
+
+    originalLink.graph.addCell(overlay);
+}
+
+
+
+function getVertexIndexFromMouse(linkView, paper, evt, tolerance = 10) {
+    const link = linkView.model;
+    const vertices = link.vertices() || [];
+    if (!vertices.length) return -1;
+
+    const mousePoint = paper.clientToLocalPoint({
+        x: evt.clientX,
+        y: evt.clientY
+    });
+
+    let minDist = Infinity;
+    let closestIndex = -1;
+
+    vertices.forEach((v, index) => {
+        const dx = v.x - mousePoint.x;
+        const dy = v.y - mousePoint.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < tolerance && dist < minDist) {
+            minDist = dist;
+            closestIndex = index;
+        }
+    });
+
+    return closestIndex;
+}
+
+const menuEl = document.getElementById('vertex-menu');
+
+function showVertexMenu({ x, y, linkView, vertexIndex }) {
+    colorMenu.style.display = 'none';
+    menuEl.style.left = x + 'px';
+    menuEl.style.top = y + 'px';
+    menuEl.style.display = 'block';
+
+    menuEl.onclick = e => {
+        const action = e.target.dataset.action;
+        if (!action) return;
+
+        if (action === 'delete') {
+            deleteVertex(linkView, vertexIndex);
+        }
+
+        menuEl.style.display = 'none';
+        menuOpen = false;
+    };
+}
+const colorMenu = document.getElementById('link-color-menu');
+
+function showLinkColorMenu({ x, y, linkView,segmentIndex }) {
+    menuEl.style.display = 'none';
+    colorMenu.style.left = x + 'px';
+    colorMenu.style.top = y + 'px';
+    colorMenu.style.display = 'block';
+
+    colorMenu.onclick = e => {
+        const color = e.target.dataset.color;
+        if (!color) return;
+        colorSegment(linkView, segmentIndex, color);
+        //colorLinkSharp(linkView, color);
+        colorMenu.style.display = 'none';
+        menuOpen = false;
+    };
+}
+function colorLinkSharp(linkView, color) {
+    linkView.model.attr({
+        line: {
+            fill: color,
+            filter: null               // remove any SVG blur
+        }
+    });
+}
+
+let menuOpen = false;
+
+paper.on('blank:pointerdown element:pointerdown', () => {
+    menuEl.style.display = 'none';
+    colorMenu.style.display = 'none';
+    menuOpen = false;
+});
+function deleteVertex(linkView, vertexIndex) {
+    const link = linkView.model;
+    let vertices = link.vertices() || [];
+
+    // Fallback: if vertexIndex is -1 and there is at least 1 vertex, delete the first one
+    if (vertexIndex === -1 && vertices.length > 0) {
+        vertexIndex = 0;
+    }
+
+    if (vertexIndex < 0 || vertexIndex >= vertices.length){
+        return;
+    } 
+
+    const newVertices = vertices.slice();
+    newVertices.splice(vertexIndex, 1);
+    link.set('vertices', newVertices);
+}
+
 
 // Move the labels layer to the front so that the labels are not covered
 // by the link tools.
@@ -387,6 +617,7 @@ labelLayerEl.parentElement.appendChild(labelLayerEl);
 // Events
 
 function onPaperLinkMouseEnter(linkView) {
+    if (menuOpen) return;
     // Scale the tools based on the width of the link.
     const branchWidth = linkView.model.attr('line/organicStrokeSize') || 5;
     const scale = Math.max(1, Math.min(2, branchWidth / 5));
@@ -401,6 +632,7 @@ function onPaperLinkMouseEnter(linkView) {
 }
 
 function onPaperLinkMouseLeave(linkView) {
+    if (menuOpen) return; // keep tools visible while menu is open
     linkView.removeTools();
 }
 

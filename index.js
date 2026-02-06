@@ -353,7 +353,7 @@ const paper = new joint.dia.Paper({
     async: true,
     overflow: true,
     cellViewNamespace: shapeNamespace,
-    clickThreshold: 5,
+    clickThreshold: 0,
     interactive: {
         labelMove: true,
         linkMove: false,
@@ -558,22 +558,41 @@ function showVertexMenu({ x, y, linkView, vertexIndex }) {
     };
 }
 const colorMenu = document.getElementById('link-color-menu');
+let activeLinkId = null;
+let activeSegmentIndex = null;
+
 
 function showLinkColorMenu({ x, y, linkView,segmentIndex }) {
     menuEl.style.display = 'none';
     colorMenu.style.left = x + 'px';
     colorMenu.style.top = y + 'px';
     colorMenu.style.display = 'block';
-
-    colorMenu.onclick = e => {
-        const color = e.target.dataset.color;
-        if (!color) return;
-        colorSegment(linkView, segmentIndex, color);
-        //colorLinkSharp(linkView, color);
-        colorMenu.style.display = 'none';
-        menuOpen = false;
-    };
+    activeLinkId = linkView.model.id;
+    activeSegmentIndex = segmentIndex;
+    // colorMenu.onclick = e => {
+    //     const color = e.target.dataset.color;
+    //     if (!color) return;
+    //     colorSegment(linkView, segmentIndex, color);
+    //     //colorLinkSharp(linkView, color);
+    //     colorMenu.style.display = 'none';
+    //     menuOpen = false;
+    // };
 }
+colorMenu.addEventListener('click', e => {
+    const color = e.target.dataset.color;
+    if (!color || !activeLinkId) return;
+
+    const link = graph.getCell(activeLinkId);
+    if (!link) return;
+
+    const linkView = paper.findViewByModel(link);
+    if (!linkView) return;
+    colorSegment(linkView, activeSegmentIndex, color);
+
+    colorMenu.style.display = 'none';
+    menuOpen = false;
+});
+
 function colorLinkSharp(linkView, color) {
     linkView.model.attr({
         line: {

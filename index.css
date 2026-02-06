@@ -27,19 +27,63 @@ body {
     box-shadow: 0 8px 20px rgba(0,0,0,.35);
     display: none;
     z-index: 9999;
+    min-width: 160px;
+    font-family: sans-serif;
 }
 
+/* reset */
 .context-menu ul {
     list-style: none;
     margin: 0;
     padding: 6px 0;
 }
 
+/* main items */
 .context-menu li {
+    position: relative;
     padding: 8px 14px;
     cursor: pointer;
+    white-space: nowrap;
 }
 
 .context-menu li:hover {
     background: #444;
+}
+
+/* ---------- SUBMENU ---------- */
+
+.context-menu li > ul {
+    position: absolute;
+    top: -6px;              /* overlap parent vertically */
+    left: 100%;
+    background: #222;
+    border-radius: 6px;
+    box-shadow: 0 8px 20px rgba(0,0,0,.35);
+    display: none;
+    min-width: 140px;
+    padding: 6px 0;
+}
+
+/* show submenu on hover */
+.context-menu li:hover > ul,
+.context-menu li > ul:hover {
+    display: block;
+}
+
+/* submenu items */
+.context-menu li > ul li {
+    padding: 8px 14px;
+}
+
+.context-menu li > ul li:hover {
+    background: #555;
+}
+
+/* optional arrow indicator */
+.context-menu li:has(ul)::after {
+    content: "▶";
+    position: absolute;
+    right: 10px;
+    font-size: 10px;
+    opacity: 0.7;
 }

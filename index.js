@@ -443,7 +443,7 @@ function distancePointToSegment(p, a, b) {
     const closestY = a.y + clampedT * dy;
     return Math.hypot(p.x - closestX, p.y - closestY);
 }
-function getNearestSegmentIndex(linkView, paper, evt, tolerance = 15) {
+function getNearestSegmentIndex(linkView, paper, evt, tolerance = 150) {
     const vertices = linkView.model.vertices() || [];
     const points = [linkView.sourcePoint, ...vertices, linkView.targetPoint];
     const mouse = paper.clientToLocalPoint({ x: evt.clientX, y: evt.clientY });
@@ -460,54 +460,144 @@ function getNearestSegmentIndex(linkView, paper, evt, tolerance = 15) {
     return segmentIndex;
 }
 // === Segment coloring ===
-function colorSegment(linkView, segmentIndex, color) {
-    const originalLink = linkView.model;
-    const vertices = originalLink.vertices() || [];
+// function colorSegment(linkView, segmentIndex, color) {
+//     const originalLink = linkView.model;
+//     const vertices = originalLink.vertices() || [];
 
+//     const points = [
+//         linkView.sourcePoint,
+//         ...vertices,
+//         linkView.targetPoint
+//     ];
+
+//     const start = points[segmentIndex];
+//     const end = points[segmentIndex + 1];
+
+//     const strokeWidth =
+//         originalLink.attr('line/organicStrokeSize') ||
+//         originalLink.attr('line/stroke-width') ||
+//         3;
+
+//     const overlay = new Branch({
+//         source: { x: start.x, y: start.y },
+//         target: { x: end.x, y: end.y },
+
+//         // // 🔴 VERY IMPORTANT
+//         // router: null,
+//         // connector: { name: 'curve' },
+//         // connectionPoint: null,
+
+//         attrs: {
+//             line: {
+//                 fill:color,
+//                 organicStrokeSize:originalLink.attr('line/organicStrokeSize')
+//                 // stroke: color,
+//                 // 'stroke-width': strokeWidth,
+//                 // 'stroke-linecap': 'butt',   // no rounding
+//                 // 'stroke-linejoin': 'miter',
+//                 //'pointer-events': 'none'   // no interaction padding
+//             }
+//         }
+//     });
+
+//     // overlay.set({
+//     //     z: originalLink.get('z') + 1,
+//     //     interactive: false   // no tools, no hover
+//     // });
+
+//     originalLink.graph.addCell(overlay);
+// }
+
+function splitLinkWithChildren(linkView, coloredSegmentIndex, color) {
+    const graph = linkView.model.graph;
+    const original = linkView.model;
+
+    const vertices = original.vertices() || [];
     const points = [
         linkView.sourcePoint,
         ...vertices,
         linkView.targetPoint
     ];
 
-    const start = points[segmentIndex];
-    const end = points[segmentIndex + 1];
+    const source = original.get('source');
+    const target = original.get('target');
 
-    const strokeWidth =
-        originalLink.attr('line/organicStrokeSize') ||
-        originalLink.attr('line/stroke-width') ||
-        3;
+    const router = original.get('router');
+    const connector = original.get('connector');
+    const baseLineAttrs = original.attr('line') || {};
+    const z = original.get('z') || 1;
 
-    const overlay = new Branch({
-        source: { x: start.x, y: start.y },
-        target: { x: end.x, y: end.y },
+    const segments = [];
+    const segmentCount = points.length - 1;
 
-        // // 🔴 VERY IMPORTANT
-        // router: null,
-        // connector: { name: 'curve' },
-        // connectionPoint: null,
+    // 1️⃣ create segments
+    for (let i = 0; i < segmentCount; i++) {
+        const link = new Branch({
+            source: i === 0
+                ? source
+                : { x: points[i].x, y: points[i].y },
 
-        attrs: {
-            line: {
-                fill:color,
-                organicStrokeSize:originalLink.attr('line/organicStrokeSize')
-                // stroke: color,
-                // 'stroke-width': strokeWidth,
-                // 'stroke-linecap': 'butt',   // no rounding
-                // 'stroke-linejoin': 'miter',
-                //'pointer-events': 'none'   // no interaction padding
+            target: i === segmentCount - 1
+                ? target
+                : { x: points[i + 1].x, y: points[i + 1].y },
+
+            router,
+            connector,
+
+            attrs: {
+                line: {
+                    ...baseLineAttrs,
+                    ...(i === coloredSegmentIndex ? { fill: color } : {})
+                }
             }
-        }
+        });
+
+        link.set({ z });
+        segments.push(link);
+    }
+
+    // 2️⃣ find children of original link
+    const children = graph.getConnectedLinks(original, { outbound: true });
+
+    // 3️⃣ reattach children
+    children.forEach(child => {
+        const src = child.get('source');
+        if (!src.anchor || src.id !== original.id) return;
+
+        const r = src.anchor.args.ratio;
+        const segIndex = Math.min(
+            segmentCount - 1,
+            Math.floor(r * segmentCount)
+        );
+
+        const localRatio =
+            (r * segmentCount) - segIndex;
+
+        child.set('source', {
+            id: segments[segIndex].id,
+            anchor: {
+                name: 'connectionRatio',
+                args: { ratio: localRatio }
+            }
+        });
     });
+    const labels = original.get('labels') || [];
+    labels.forEach(label => {
+        const d = label.position.distance;
+        const segIndex = Math.min(segmentCount - 1, Math.floor(d * segmentCount));
+        const localDistance = (d * segmentCount) - segIndex;
 
-    // overlay.set({
-    //     z: originalLink.get('z') + 1,
-    //     interactive: false   // no tools, no hover
-    // });
+        segments[segIndex].appendLabel({
+            attrs: label.attrs,
+            position: { distance: localDistance, angle: label.position.angle }
+        });
+    });
+    // 4️⃣ replace original
+    original.remove();
+    graph.addCells(segments);
 
-    originalLink.graph.addCell(overlay);
+    return segments;
 }
-
 
 
 function getVertexIndexFromMouse(linkView, paper, evt, tolerance = 10) {
@@ -587,7 +677,7 @@ colorMenu.addEventListener('click', e => {
 
     const linkView = paper.findViewByModel(link);
     if (!linkView) return;
-    colorSegment(linkView, activeSegmentIndex, color);
+    splitLinkWithChildren(linkView, activeSegmentIndex, color);
 
     colorMenu.style.display = 'none';
     menuOpen = false;
@@ -604,11 +694,16 @@ function colorLinkSharp(linkView, color) {
 
 let menuOpen = false;
 
-paper.on('blank:pointerdown element:pointerdown', () => {
+// paper.on('blank:pointerdown element:pointerdown', () => {
+//     menuEl.style.display = 'none';
+//     colorMenu.style.display = 'none';
+//     menuOpen = false;
+// });
+function onBlankAndElementdownClick(){
     menuEl.style.display = 'none';
     colorMenu.style.display = 'none';
     menuOpen = false;
-});
+}
 function deleteVertex(linkView, vertexIndex) {
     const link = linkView.model;
     let vertices = link.vertices() || [];
@@ -685,6 +780,79 @@ paper.on({
     'link:mouseleave': onPaperLinkMouseLeave,
     'element:pointerclick': onPaperElementPointerclick,
     'blank:pointerclick': onBlankPointerclick,
+    'blank:pointerdown': onBlankAndElementdownClick,
+    'element:pointerdown': onBlankAndElementdownClick,
+});
+function makeLabelEditable(link, labelIndex = 0) {
+    const label = link.get('labels')?.[labelIndex];
+    if (!label) return;
+
+    const linkView = link.findView(paper);
+    if (!linkView) return;
+
+    const offset = label.position?.offset || { x: 0, y: 0 };
+    const bbox = linkView.getBBox({ useModelGeometry: true });
+    const labelX = bbox.x + offset.x;
+    const labelY = bbox.y + offset.y;
+
+    // Create a container div for input + buttons
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.left = `${labelX}px`;
+    container.style.top = `${labelY}px`;
+    container.style.display = 'inline-flex';
+    container.style.alignItems = 'center';
+    container.style.gap = '5px';
+    container.style.zIndex = 1000;
+
+    // Create input
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = label.attrs?.labelText?.text || '';
+    input.style.fontSize = '14px';
+    input.style.fontFamily = 'sans-serif';
+    input.style.width = '120px';
+    input.style.height = '25px';
+    container.appendChild(input);
+
+    // Create Save button
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save';
+    saveBtn.style.height = '25px';
+    saveBtn.addEventListener('click', () => {
+        link.label(labelIndex, {
+            attrs: {
+                labelText: { text: input.value },
+            },
+        });
+        container.remove();
+    });
+    container.appendChild(saveBtn);
+
+    // Create Cancel button
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.height = '25px';
+    cancelBtn.addEventListener('click', () => {
+        container.remove();
+    });
+    container.appendChild(cancelBtn);
+
+    document.body.appendChild(container);
+    input.focus();
+
+    // Optional: handle Enter / Escape keys
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') saveBtn.click();
+        if (e.key === 'Escape') cancelBtn.click();
+    });
+}
+
+
+// Attach to double-click anywhere on paper
+paper.on('link:pointerdblclick', (linkView, evt) => {
+    evt.stopPropagation();
+    makeLabelEditable(linkView.model, 0);
 });
 
 // Species

@@ -699,10 +699,13 @@ let menuOpen = false;
 //     colorMenu.style.display = 'none';
 //     menuOpen = false;
 // });
-function onBlankAndElementdownClick(){
+function onBlankAndElementdownClick(e){
     menuEl.style.display = 'none';
     colorMenu.style.display = 'none';
     menuOpen = false;
+    activeLabelEditor?.remove();
+    activeLabelEditor = null;
+
 }
 function deleteVertex(linkView, vertexIndex) {
     const link = linkView.model;
@@ -737,7 +740,11 @@ function onPaperLinkMouseEnter(linkView) {
     const scale = Math.max(1, Math.min(2, branchWidth / 5));
     const toolsView = new joint.dia.ToolsView({
         tools: [
-            new joint.linkTools.Vertices(),
+            new joint.linkTools.Vertices({
+                snapRadius: 0,              // allow very close placement
+                redundancyRemoval: false,   // DO NOT auto-remove
+                vertexAdding: true
+            }),
             new joint.linkTools.SourceAnchor({ restrictArea: false, scale }),
             new joint.linkTools.Remove({ scale }),
         ],
@@ -783,7 +790,14 @@ paper.on({
     'blank:pointerdown': onBlankAndElementdownClick,
     'element:pointerdown': onBlankAndElementdownClick,
 });
+let activeLabelEditor = null;
+
 function makeLabelEditable(link, labelIndex = 0) {
+    if (activeLabelEditor) {
+        activeLabelEditor.remove();
+        activeLabelEditor = null;
+    }
+
     const label = link.get('labels')?.[labelIndex];
     if (!label) return;
 
@@ -805,6 +819,8 @@ function makeLabelEditable(link, labelIndex = 0) {
     container.style.gap = '5px';
     container.style.zIndex = 1000;
 
+    activeLabelEditor = container; // 🔑 track active editor
+
     // Create input
     const input = document.createElement('input');
     input.type = 'text';
@@ -820,12 +836,15 @@ function makeLabelEditable(link, labelIndex = 0) {
     saveBtn.textContent = 'Save';
     saveBtn.style.height = '25px';
     saveBtn.addEventListener('click', () => {
-        link.label(labelIndex, {
-            attrs: {
-                labelText: { text: input.value },
-            },
-        });
+        if (input.value.trim() !== '') {
+            link.label(labelIndex, {
+                attrs: {
+                    labelText: { text: input.value },
+                },
+            });
+        }
         container.remove();
+        activeLabelEditor = null;
     });
     container.appendChild(saveBtn);
 
@@ -835,6 +854,7 @@ function makeLabelEditable(link, labelIndex = 0) {
     cancelBtn.style.height = '25px';
     cancelBtn.addEventListener('click', () => {
         container.remove();
+        activeLabelEditor = null;
     });
     container.appendChild(cancelBtn);
 
@@ -852,7 +872,27 @@ function makeLabelEditable(link, labelIndex = 0) {
 // Attach to double-click anywhere on paper
 paper.on('link:pointerdblclick', (linkView, evt) => {
     evt.stopPropagation();
-    makeLabelEditable(linkView.model, 0);
+    const target = evt.target;
+
+    // ❌ Ignore dblclicks coming from vertices
+    if (target.closest('.joint-vertex')) return;
+
+    // ❌ Ignore link path
+    if (target.closest('[joint-selector="line"]')) return;
+
+    // ✅ Allow only label text or label background
+    const labelText = target.closest('[joint-selector="labelText"]');
+    const labelBg   = target.closest('[joint-selector="labelBackground"]');
+
+    if (!labelText && !labelBg) return;
+
+    const labelGroup = target.closest('g.label');
+    if (!labelGroup) return;
+
+    // 🔑 Read label index
+    const labelIndex = parseInt(labelGroup.getAttribute('label-idx'), 10);
+    if (Number.isNaN(labelIndex)) return;
+    makeLabelEditable(linkView.model, labelIndex);
 });
 
 // Species
@@ -1117,6 +1157,17 @@ const arthropodaLink = new Branch({
             },
             position: {
                 distance: 0.45,
+                angle: 10,
+            },
+        },
+        {
+            attrs: {
+                labelText: {
+                    text: 'Protostomia2',
+                },
+            },
+            position: {
+                distance: 0.15,
                 angle: 10,
             },
         },

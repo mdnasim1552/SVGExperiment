@@ -345,6 +345,64 @@ const shapeNamespace = {
 };
 
 const graph = new joint.dia.Graph({}, { cellNamespace: shapeNamespace });
+const undoStack = [];
+const redoStack = [];
+let isRestoring = false;
+
+// Save initial state
+undoStack.push(graph.toJSON());
+
+graph.on('change add remove', function () {
+    if (isRestoring) return;
+
+    undoStack.push(graph.toJSON());
+    redoStack.length = 0;
+});
+function undo() {
+    if (undoStack.length <= 1) return;
+
+    isRestoring = true;
+
+    const current = undoStack.pop();
+    redoStack.push(current);
+
+    const prev = undoStack[undoStack.length - 1];
+    graph.fromJSON(prev);
+
+    isRestoring = false;
+}
+
+function redo() {
+    if (!redoStack.length) return;
+
+    isRestoring = true;
+
+    const next = redoStack.pop();
+    undoStack.push(next);
+
+    graph.fromJSON(next);
+
+    isRestoring = false;
+}
+
+document.addEventListener('keydown', function (e) {
+
+    // Undo
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+    }
+
+    // Redo
+    if (
+        (e.ctrlKey && e.key === 'y') ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Z')
+    ) {
+        e.preventDefault();
+        redo();
+    }
+
+});
 
 const paper = new joint.dia.Paper({
     el: document.getElementById('paper'),
@@ -1319,13 +1377,23 @@ graph.addCells([
 // Fit the content of the paper to the viewport.
 // ---------------------------------------------
 
-paper.transformToFitContent({
-    horizontalAlign: 'middle',
-    verticalAlign: 'middle',
-    padding: 50,
-    useModelGeometry: true,
-});
+// paper.transformToFitContent({
+//     horizontalAlign: 'middle',
+//     verticalAlign: 'middle',
+//     padding: 50,
+//     useModelGeometry: true,
+// });
+function ensureToolsLayerOnTop(paper) {
+    const svg = paper.svg;
+    const toolsLayer = svg.querySelector('.joint-tools-layer');
 
+    if (toolsLayer) {
+        svg.appendChild(toolsLayer); // move to end → always on top
+    }
+}
+paper.on('render:done', function () {
+    ensureToolsLayerOnTop(paper);
+});
 setTimeout(() => {
   paper.unfreeze();
 }, 0);

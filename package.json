@@ -1,0 +1,29 @@
+{
+  "name": "svg-experiment",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mdnasim1552/SVGExperiment.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/mdnasim1552/SVGExperiment/issues"
+  },
+  "homepage": "https://github.com/mdnasim1552/SVGExperiment#readme",
+  "devDependencies": {
+    "webpack": "^5.105.2",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "@joint/core": "^4.2.4",
+    "perfect-freehand": "^1.2.3"
+  }
+}

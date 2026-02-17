@@ -329,14 +329,13 @@ function pushOperation(op) {
 // Commit operations after batch:stop
 graph.on('batch:stop', () => {
     if (isRestoring || batchOperations.length === 0) return;
-    undoStack.push(batchOperations);
+    undoStack.push([...batchOperations]);
     redoStack.length = 0;
     batchOperations = [];
 });
 
 // --- UNDO ---
 function undo() {
-    debugger;
     if (!undoStack.length) return;
     isRestoring = true;
 
@@ -344,14 +343,26 @@ function undo() {
     const reversedOps = [...ops].reverse();
 
     reversedOps.forEach(op => {
+        // if (op.type === 'snapshot') {
+        //     //graph.clear();               // remove all current cells
+        //     //graph.fromJSON(op.before);   // restore previous snapshot
+        //     restoreFromSnapshot(graph, op.before,shapeNamespace); // restore manually
+        //     refreshPaper();
+        //     return; // skip other operations
+        // }
         switch (op.type) {
+            case 'snapshot':
+                restoreFromSnapshot(graph, op.before,shapeNamespace); // restore manually
+                refreshPaper();
+                break;
             case 'addElement': op.element.remove(); break;
             case 'removeElement': graph.addCell(op.element); break;
             case 'moveElement': op.element.position(op.from.x, op.from.y); break;
             case 'addLink':
-                if(undoStack.length>1){
-                    op.link.remove(); 
-                }
+                op.link.remove(); 
+                // if(undoStack.length>1){
+                //     op.link.remove(); 
+                // }
                 break;
             case 'removeLink': graph.addCell(op.link); break;
             case 'moveVertices': op.link.set('vertices', op.from); break;
@@ -380,6 +391,79 @@ function undo() {
     redoStack.push(ops);
     isRestoring = false;
 }
+function restoreFromSnapshot(graph, snapshot, shapeNamespace) {
+    if (!snapshot || !snapshot.cells) return;
+    
+    // 1️⃣ Clear current graph
+    graph.clear();
+
+    const cellsMap = new Map(); // ID -> cell
+
+    // 2️⃣ Recreate all elements and links
+    snapshot.cells.forEach(data => {
+        let cell;
+
+        if (data.type && data.type.includes('link')) {
+            // Link
+            cell = new joint.dia.Link(data);
+        } else {
+            // Element: use correct class from shapeNamespace
+            const ElementClass = shapeNamespace[data.type];
+            if (!ElementClass) {
+                console.warn(`Shape class "${data.type}" not found. Using joint.dia.Element as fallback.`);
+            }
+            cell = new (ElementClass || joint.dia.Element)(data);
+        }
+
+        graph.addCell(cell);
+        cellsMap.set(data.id, cell);
+    });
+
+    // 3️⃣ Restore vertices and labels
+    graph.getLinks().forEach(link => {
+        const data = snapshot.cells.find(c => c.id === link.id);
+        if (!data) return;
+
+        link.set('vertices', (data.vertices || []).map(v => ({ ...v })));
+        link.set('labels', (data.labels || []).map(l => ({ ...l })));
+    });
+
+    // 4️⃣ Restore source and target
+    graph.getLinks().forEach(link => {
+        const data = snapshot.cells.find(c => c.id === link.id);
+        if (!data) return;
+
+        link.set({
+            source: { ...data.source },
+            target: { ...data.target }
+        });
+    });
+
+    // 5️⃣ Restore z-index
+    graph.getCells().forEach(cell => {
+        const data = snapshot.cells.find(c => c.id === cell.id);
+        if (data && data.z != null) {
+            cell.set('z', data.z);
+        }
+    });
+
+    // 6️⃣ Reattach child links to parent links
+    graph.getLinks().forEach(link => {
+        const data = snapshot.cells.find(c => c.id === link.id);
+        if (!data) return;
+
+        const children = snapshot.cells.filter(c => c.source && c.source.id === link.id);
+        children.forEach(childData => {
+            const child = cellsMap.get(childData.id);
+            if (child) {
+                child.set('source', { id: link.id, anchor: childData.source.anchor });
+            }
+        });
+    });
+}
+
+
+
 
 // --- REDO ---
 function redo() {
@@ -388,7 +472,18 @@ function redo() {
 
     const ops = redoStack.pop();
     ops.forEach(op => {
+        // if (op.type === 'snapshot') {
+        //     //graph.clear();
+        //     //graph.fromJSON(op.after);  // restore snapshot after the operation
+        //     restoreFromSnapshot(graph, op.after,shapeNamespace); 
+        //     refreshPaper();
+        //     return;
+        // }
         switch (op.type) {
+            case 'snapshot':
+                restoreFromSnapshot(graph, op.after,shapeNamespace); 
+                refreshPaper();
+                break;
             case 'addElement': graph.addCell(op.element); break;
             case 'removeElement': op.element.remove(); break;
             case 'moveElement': op.element.position(op.to.x, op.to.y); break;
@@ -559,7 +654,7 @@ const paper = new joint.dia.Paper({
     clickThreshold: 0,
     interactive: {
         labelMove: true,
-        linkMove: true,
+        linkMove: false,
         stopDelegation: false,
     },
     snapLabels: true,
@@ -725,7 +820,10 @@ function splitLinkWithChildren(linkView, coloredSegmentIndex, color) {
             attrs: {
                 line: {
                     ...baseLineAttrs,
-                    ...(i === coloredSegmentIndex ? { fill: color } : {})
+                    ...(i === coloredSegmentIndex ? { fill: color } : {}),
+                    ...(i === segmentCount - 1 && baseLineAttrs.organicStrokeThinning > 0
+                        ? { organicStrokeThinning: baseLineAttrs.organicStrokeThinning }
+                        : {organicStrokeThinning:0,organicStrokeSize:30})
                 }
             }
         });
@@ -824,17 +922,83 @@ function showLinkColorMenu({ x, y, linkView, segmentIndex }) {
     activeLinkId = linkView.model.id;
     activeSegmentIndex = segmentIndex;
 }
+function snapshotGraph(graph) {
+    return graph.toJSON({ deep: true }); // full state of graph
+}
+function executeWithSnapshot(graph, fn) {
+    const before = snapshotGraph(graph); // capture before state
+    isRestoring = true; // ignore add/remove events
+    graph.startBatch();
+    fn(); // your operation, e.g., splitLinkWithChildren
+    graph.stopBatch();
+    isRestoring = false;
+    const after = snapshotGraph(graph); // capture after state
+    undoStack.push([{ type: 'snapshot', before, after }]);
+
+    // pushOperation([{
+    //     type: 'snapshot',
+    //     before,
+    //     after
+    // }]);
+    redoStack.length = 0;
+}
+
 colorMenu.addEventListener('click', e => {
     const color = e.target.dataset.color;
-    if (!color || !activeLinkId) return;
-    const link = graph.getCell(activeLinkId);
-    if (!link) return;
-    const linkView = paper.findViewByModel(link);
-    if (!linkView) return;
-    splitLinkWithChildren(linkView, activeSegmentIndex, color);
-    colorMenu.style.display = 'none';
+    if (color){
+        if (!activeLinkId) return;
+        const link = graph.getCell(activeLinkId);
+        if (!link) return;
+        const linkView = paper.findViewByModel(link);
+        if (!linkView) return;
+       executeWithSnapshot(graph, () => {
+            splitLinkWithChildren(linkView, activeSegmentIndex, color);
+        });
+        colorMenu.style.display = 'none';
+    }else{
+        const action = e.target.dataset.action;
+        if (!action) return;
+        if (action === 'hide-label') {
+            hideAllLinkLabels()
+            
+        }else if(action === 'show-label') {
+            showAllLinkLabels();
+        }
+        colorMenu.style.display = 'none';
+    }
+    
     menuOpen = false;
 });
+function hideAllLinkLabels() {
+    graph.getLinks().forEach(link => {
+        const labels = link.labels();
+
+        labels.forEach((label, index) => {
+            link.label(index, {
+                attrs: {
+                    labelText: { display: 'none' },
+                    labelBackground: { display: 'none' },
+                    line: { display: 'none' },
+                }
+            });
+        });
+    });
+}
+function showAllLinkLabels(){
+    graph.getLinks().forEach(link => {
+        const labels = link.labels();
+        labels.forEach((label, index) => {
+            link.label(index, {
+                attrs: {
+                    labelText: { display: 'block' },
+                    labelBackground: { display: 'block' },
+                    line: { display: 'block' },
+                }
+            });
+        });
+    });
+}
+
 function colorLinkSharp(linkView, color) {
     linkView.model.attr({
         line: {
@@ -1223,7 +1387,7 @@ const laLink = new Branch({
     vertices: [{ x: 352, y: 46 }, { x: 176, y: 104 }],
     attrs: {
         line: {
-            organicStrokeSize: 20,
+            organicStrokeSize: 30,
         },
     },
     labels: [
@@ -1249,7 +1413,7 @@ const lbLink = new Branch({
     vertices: [{ x: -10, y: 369 }, { x: -70, y: 509 }],
     attrs: {
         line: {
-            organicStrokeSize: 20,
+            organicStrokeSize: 30,
         },
     },
     labels: [
@@ -1275,7 +1439,7 @@ const lcLink = new Branch({
     vertices: [{ x: 72, y: 663 }, { x: 118, y: 614 }],
     attrs: {
         line: {
-            organicStrokeSize: 20,
+            organicStrokeSize: 30,
         },
     },
     labels: [
@@ -1300,7 +1464,8 @@ const ldLink = new Branch({
     target: { x: 97, y: 859 },
     attrs: {
         line: {
-            organicStrokeSize: 20,
+            organicStrokeSize: 16,
+            organicStrokeThinning: 0.8, 
         },
     },
     labels: [
@@ -1325,7 +1490,7 @@ const raLink = new Branch({
     target: { x: 523, y: 134 },
     attrs: {
         line: {
-            organicStrokeSize: 20,
+            organicStrokeSize: 30,
         },
     },
     labels: [
@@ -1350,7 +1515,7 @@ const rbLink = new Branch({
     target: { x: 675, y: 225 },
     attrs: {
         line: {
-            organicStrokeSize: 20,
+            organicStrokeSize: 30,
         },
     },
     labels: [
@@ -1376,7 +1541,7 @@ const rcLink = new Branch({
     vertices: [{ x: 840, y: 309 }],
     attrs: {
         line: {
-            organicStrokeSize: 20,
+            organicStrokeSize: 30,
         },
     },
     labels: [
@@ -1401,7 +1566,7 @@ const rdLink = new Branch({
     target: { x: 832, y: 504 },
     attrs: {
         line: {
-            organicStrokeSize: 20,
+            organicStrokeSize: 30,
         },
     },
     labels: [
@@ -1426,7 +1591,7 @@ const reLink = new Branch({
     target: { x: 1019, y: 557 },
     attrs: {
         line: {
-            organicStrokeSize: 20,
+            organicStrokeSize: 30,
         },
     },
     labels: [
@@ -1451,7 +1616,8 @@ const rfLink = new Branch({
     target: { x: 916, y: 764 },
     attrs: {
         line: {
-            organicStrokeSize: 20,
+            organicStrokeSize: 16,
+            organicStrokeThinning: 0.8, 
         },
     },
     labels: [
@@ -1468,6 +1634,20 @@ const rfLink = new Branch({
         },
     ],
 });
+const rfLink2 = new Branch({
+    source: {
+        id: rfLink.id,
+        anchor: { name: 'connectionRatio', args: { ratio: 0.3 } },
+    },
+    target: { x: 785, y: 757 },
+    vertices: [{ x: 836, y: 649 }],
+    attrs: {
+        line: {
+            organicStrokeSize: 13,
+            organicStrokeThinning: 0.8, 
+        },
+    },
+});
 const rgLink = new Branch({
     source: {
         id: raLink.id,
@@ -1477,7 +1657,7 @@ const rgLink = new Branch({
     vertices: [{ x: 678, y: 388 }],
     attrs: {
         line: {
-            organicStrokeSize: 20,
+            organicStrokeSize: 30,
         },
     },
     labels: [
@@ -1502,7 +1682,7 @@ const rhLink = new Branch({
     target: { x: 468, y: 260 },
     attrs: {
         line: {
-            organicStrokeSize: 20,
+            organicStrokeSize: 30,
         },
     },
     labels: [
@@ -1528,7 +1708,7 @@ const riLink = new Branch({
     vertices: [{ x: 525, y: 382 }, { x: 602, y: 468 }],
     attrs: {
         line: {
-            organicStrokeSize: 20,
+            organicStrokeSize: 30,
         },
     },
     labels: [
@@ -1553,7 +1733,7 @@ const rjLink = new Branch({
     target: { x: 407, y: 382 },
     attrs: {
         line: {
-            organicStrokeSize: 20,
+            organicStrokeSize: 30,
         },
     },
     labels: [
@@ -1579,7 +1759,7 @@ const rkLink = new Branch({
     vertices: [{ x: 464, y: 502 }, { x: 532, y: 581 }],
     attrs: {
         line: {
-            organicStrokeSize: 20,
+            organicStrokeSize: 30,
         },
     },
     labels: [
@@ -1604,7 +1784,7 @@ const rlLink = new Branch({
     target: { x: 287, y: 598 },
     attrs: {
         line: {
-            organicStrokeSize: 20,
+            organicStrokeSize: 30,
         },
     },
     labels: [
@@ -1630,8 +1810,7 @@ const rmLink = new Branch({
     vertices: [{ x: 409, y: 627 }],
     attrs: {
         line: {
-            organicStrokeSize: 15,
-            organicStrokeThinning: 0.8, // <-- pass thinning here
+            organicStrokeSize: 30,
         },
     },
     labels: [
@@ -1659,6 +1838,7 @@ graph.addCells([
     rdLink,
     reLink,
     rfLink,
+    rfLink2,
     rgLink,
     rhLink,
     riLink,
@@ -1686,6 +1866,16 @@ paper.transformToFitContent({
 // paper.on('render:done', function () {
 //     ensureToolsLayerOnTop(paper);
 // });
+function refreshPaper() {
+    if (!paper) return;
+
+    // Force update of all views
+    paper.model.getCells().forEach(cell => {
+        const view = paper.findViewByModel(cell);
+        if (view) view.update();
+    });
+}
+hideAllLinkLabels();
 setTimeout(() => {
     paper.unfreeze();
 }, 0);

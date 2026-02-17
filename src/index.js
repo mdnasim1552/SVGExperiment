@@ -298,12 +298,12 @@ const RotateTool = joint.elementTools.Control.extend({
     getPosition: function (view) {
         const { model } = view;
         const { width } = model.size();
-        return new g.Point(width, 0);
+        return new joint.g.Point(width, 0);
     },
     setPosition: function (view, coordinates) {
         const { model } = view;
         const { width, height } = model.size();
-        const center = new g.Point(width / 2, height / 2);
+        const center = new joint.g.Point(width / 2, height / 2);
         const angle = center.angleBetween(coordinates, this.getPosition(view));
         model.rotate(Math.round(angle));
     },
@@ -943,16 +943,120 @@ function executeWithSnapshot(graph, fn) {
     // }]);
     redoStack.length = 0;
 }
+function updateRectanglePosition(rect) {
+
+    const attachment = rect.get('linkAttachment');
+    if (!attachment) return;
+
+    const link = graph.getCell(attachment.linkId);
+    if (!link) return;
+
+    const linkView = paper.findViewByModel(link);
+    if (!linkView) return;
+
+    const connection = linkView.getConnection();
+
+    const ratio = attachment.ratio;
+    const point = connection.pointAt(ratio);
+
+    const { width, height } = rect.size();
+
+    // Center rectangle on link
+    rect.position(point.x - width / 2, point.y - height / 2);
+
+    // ✅ Get tangent direction at ratio
+    const tangent = connection.tangentAt(ratio);
+
+    if (tangent) {
+        const angle = joint.g.toDeg(Math.atan2(tangent.y, tangent.x));
+        if (angle > 90 || angle < -90) angle += 180;
+        rect.rotate(angle, true); // true = rotate around center
+    }
+}
+
+
+function insertRectangleOnLink(link,evt) {
+    const linkView = paper.findViewByModel(link);
+    if (!linkView) return;
+
+    const localPoint = paper.clientToLocalPoint({
+        x: evt.clientX,
+        y: evt.clientY
+    });
+
+    const connection = linkView.getConnection();
+
+    const totalLength = connection.length();
+    const closestLength = connection.closestPointLength(localPoint);
+    // let ratio = closestLength / totalLength;
+    // ratio = Math.max(0, Math.min(1, ratio));
+    // ratio = Math.round(ratio * 1000) / 1000; // optional: 0.001 precision
+    let ratio = Math.max(0, Math.min(1, closestLength / totalLength));
+    const rect = new joint.shapes.standard.Rectangle({
+        size: { width: 40, height: 30 }, // height will auto-adjust
+        attrs: {
+            body: { fill: '#4c4ed8', stroke: '#000000', strokeWidth: 2, rx: 10, ry: 10 },
+            //label: { text: 'Block', fill: '#000000' }
+        }
+    });
+
+    // store ratio on element
+    rect.set('linkAttachment', {
+        linkId: link.id,
+        ratio: ratio
+    });
+
+    graph.addCell(rect);
+
+    updateRectanglePosition(rect);
+}
+
+graph.on('change:vertices change:source change:target', function(link) {
+
+    graph.getElements().forEach(el => {
+        const attachment = el.get('linkAttachment');
+        if (attachment && attachment.linkId === link.id) {
+            updateRectanglePosition(el);
+        }
+    });
+
+});
+paper.on('element:pointermove', function(view, evt, x, y) {
+
+    const rect = view.model;
+    const attachment = rect.get('linkAttachment');
+    if (!attachment) return;
+
+    const link = graph.getCell(attachment.linkId);
+    if (!link) return;
+
+    const linkView = paper.findViewByModel(link);
+    if (!linkView) return;
+
+    const connection = linkView.getConnection();
+
+    const totalLength = connection.length();
+    const closestLength = connection.closestPointLength({ x, y });
+    const ratio = closestLength / totalLength;
+
+    rect.set('linkAttachment', {
+        linkId: attachment.linkId,
+        ratio: ratio
+    });
+
+    updateRectanglePosition(rect);
+});
+
 
 colorMenu.addEventListener('click', e => {
+    if (!activeLinkId) return;
+    const link = graph.getCell(activeLinkId);
     const color = e.target.dataset.color;
+    if (!link) return;
+    const linkView = paper.findViewByModel(link);
+    if (!linkView) return;
     if (color){
-        if (!activeLinkId) return;
-        const link = graph.getCell(activeLinkId);
-        if (!link) return;
-        const linkView = paper.findViewByModel(link);
-        if (!linkView) return;
-       executeWithSnapshot(graph, () => {
+        executeWithSnapshot(graph, () => {
             splitLinkWithChildren(linkView, activeSegmentIndex, color);
         });
         colorMenu.style.display = 'none';
@@ -964,6 +1068,8 @@ colorMenu.addEventListener('click', e => {
             
         }else if(action === 'show-label') {
             showAllLinkLabels();
+        }else if(action==='add-rectangle'){
+            insertRectangleOnLink(link,e);
         }
         colorMenu.style.display = 'none';
     }
@@ -1071,15 +1177,15 @@ function onPaperElementPointerclick(elementView) {
             'stroke-width': 2,
         },
     });
-    elementView.addTools(
-        new joint.dia.ToolsView({
-            tools: [
-                new RotateTool({
-                    selector: 'border',
-                }),
-            ],
-        })
-    );
+    // elementView.addTools(
+    //     new joint.dia.ToolsView({
+    //         tools: [
+    //             new RotateTool({
+    //                 selector: 'border',
+    //             }),
+    //         ],
+    //     })
+    // );
 }
 function onBlankPointerclick() {
     paper.removeTools();

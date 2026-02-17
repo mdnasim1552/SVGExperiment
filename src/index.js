@@ -656,6 +656,7 @@ const paper = new joint.dia.Paper({
         labelMove: true,
         linkMove: false,
         stopDelegation: false,
+        linkDelete: false,
     },
     snapLabels: true,
     labelsLayer: true,
@@ -1052,7 +1053,7 @@ function onPaperLinkMouseEnter(linkView) {
                 vertexAdding: true
             }),
             new joint.linkTools.SourceAnchor({ restrictArea: false, scale }),
-            new joint.linkTools.Remove({ scale }),
+            //new joint.linkTools.Remove({ scale }),
         ],
     });
     linkView.addTools(toolsView);

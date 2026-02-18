@@ -583,6 +583,7 @@ graph.on('remove', cell => {
 
 graph.on('change:position', cell => {
     if (isRestoring || !cell.isElement()) return;
+    if (cell.get('linkAttachment')) return;
     const prev = cell.previous('position');
     const curr = cell.position();
     if (!prev || (prev.x === curr.x && prev.y === curr.y)) return;
@@ -1059,24 +1060,64 @@ function updateRectanglePosition(rect) {
     ratio = Math.max(0, Math.min(1, ratio)); // clamp between 0 and 1
 
     // 🔹 Store updated ratio
-    rect.set('linkAttachment', { linkId: link.id, ratio });
+    //rect.set('linkAttachment', { linkId: link.id, ratio });
+    if (!isRestoring) {
+        rect.set('linkAttachment', { linkId: link.id, ratio });
+    } else {
+        rect.attributes.linkAttachment = { linkId: link.id, ratio };
+    }
 
     // 🔹 Get position along link
     const point = connection.pointAt(ratio);
-    const { width, height } = rect.size();
+    if (!point) return;
 
-    // Center rectangle
-    rect.position(point.x - width / 2, point.y - height / 2);
+    // compute tangent manually
+    const delta = Math.min(0.01, 1 / totalLength);
+    const before = connection.pointAt(Math.max(0, ratio - delta));
+    const after  = connection.pointAt(Math.min(1, ratio + delta));
+    if (!before || !after) return;
 
-    // ✅ Get tangent direction at ratio
-    const tangent = connection.tangentAt(ratio);
+    const tangent = { x: after.x - before.x, y: after.y - before.y };
+    let angle = joint.g.toDeg(Math.atan2(tangent.y, tangent.x));
+    //if (angle > 90 || angle < -90) angle += 180;
+    // Smooth angle to prevent flipping
+    const prevAngle = rect.rotation || angle;
+    if (angle - prevAngle > 90) angle -= 180;
+    else if (angle - prevAngle < -90) angle += 180;
 
-    if (tangent) {
-        const angle = joint.g.toDeg(Math.atan2(tangent.y, tangent.x));
-        if (angle > 90 || angle < -90) angle += 180;
-        rect.rotate(angle, true); // true = rotate around center
+    let curvature = 0;
+
+    if (before && after) {
+        const dx1 = point.x - before.x;
+        const dy1 = point.y - before.y;
+        const dx2 = after.x - point.x;
+        const dy2 = after.y - point.y;
+
+        const angle1 = Math.atan2(dy1, dx1);
+        const angle2 = Math.atan2(dy2, dx2);
+
+        curvature = Math.abs(angle2 - angle1);
     }
+
+    // 🔥 Dynamic height based on curvature
+    const baseWidth = 60;
+    const baseHeight = 30;
+
+    const dynamicHeight = baseHeight - (curvature * totalLength * 0.1);//baseHeight - (curvature * 40);
+// const localLength = Math.sqrt((after.x - before.x)**2 + (after.y - before.y)**2);
+// const dynamicHeight = Math.max(12, Math.min(baseHeight, localLength*0.8, baseHeight - curvature*totalLength*0.1));
+
+    const finalHeight = Math.max(12, dynamicHeight);
+
+    rect.resize(baseWidth, finalHeight);
+
+    rect.position(
+        point.x - baseWidth / 2,
+        point.y - finalHeight / 2
+    );
+    rect.rotate(angle, true);
 }
+
 
 
 function insertRectangleOnLink(link,x,y) {
@@ -1160,12 +1201,12 @@ paper.on('element:pointerup', (view, evt) => {
 
     if (startRatio === undefined || startRatio === endRatio) return;
 
-    pushOperation([{
+    pushOperation({
         type: 'moveAttachment',
         element: rect,
         from: startRatio,
         to: endRatio
-    }]);
+    });
 });
 
 

@@ -11,6 +11,44 @@ const colors = {
     link: '#FFFFFF',
     highlight: '#f7a1a8',
 };
+joint.shapes.custom = {};
+
+joint.shapes.custom.Worm = joint.dia.Element.define('custom.Worm', {
+    size: { width: 60, height: 30 },
+
+    attrs: {
+        body: {
+            d: '',
+            fill: '#4c4ed8',
+            stroke: '#000000',
+            strokeWidth: 2,
+            class: 'custom-shape',
+        }
+    }
+}, {
+    markup: [
+        {
+            tagName: 'path',
+            selector: 'body'
+        }
+    ]
+});
+joint.shapes.custom.UpBottomStroke = joint.dia.Element.define('custom.UpBottomStroke', {
+    size: { width: 1, height: 1 }, // small because we position paths absolutely
+    attrs: {
+        root: { class: 'custom-shape' }, 
+        topPath: { d: '', fill: 'none', stroke: 'blue', strokeWidth: 8 },
+        bottomPath: { d: '', fill: 'none', stroke: 'orange', strokeWidth: 8 },
+        fillBody: { d: '', fill: '#ffffff', stroke: 'none' } // optional fill
+    }
+}, {
+    markup: [
+        { tagName: 'path', selector: 'fillBody' },
+        { tagName: 'path', selector: 'topPath' },
+        { tagName: 'path', selector: 'bottomPath' }
+    ]
+});
+
 class Species extends joint.dia.Element {
     defaults() {
         return {
@@ -366,7 +404,7 @@ function undo() {
                     ...attUndo,
                     ratio: op.from
                 });
-                updateRectanglePosition(op.element);
+                RefreshElementAfterUndoAndRedo(op.element);
                 break;
             case 'addLink':
                 op.link.remove(); 
@@ -520,7 +558,7 @@ function redo() {
                     ...attRedo,
                     ratio: op.to
                 });
-                updateRectanglePosition(op.element);
+                RefreshElementAfterUndoAndRedo(op.element);
                 break;
 
             case 'addLink': graph.addCell(op.link); break;
@@ -551,7 +589,17 @@ function redo() {
     undoStack.push(ops);
     isRestoring = false;
 }
-
+function RefreshElementAfterUndoAndRedo(element){
+    if (element.get('type') === 'custom.Worm') {
+        updateWormShape(element);
+    } 
+    else if(element.get('type') === 'custom.UpBottomStroke') {
+        updateUpBottomStrokeShape(element);
+    }
+    else {
+        updateRectanglePosition(element);
+    }
+}
 // --- Keyboard shortcuts ---
 document.addEventListener('keydown', e => {
     const key = e.key.toLowerCase();
@@ -608,12 +656,7 @@ graph.on('change:vertices', link => {
             to: curr.map(v => ({ ...v })),
         });
     }
-    graph.getElements().forEach(el => {
-        const attachment = el.get('linkAttachment');
-        if (attachment && attachment.linkId === link.id) {
-            updateRectanglePosition(el);
-        }
-    });
+    RefreshElementsOfGraph(link);
 });
 graph.on('change:labels', link => {
     if (isRestoring || !link.isLink()) return;
@@ -681,14 +724,24 @@ graph.on('change:source change:target', function (link) {
             to: { ...currTarget }
         });
     }
+    RefreshElementsOfGraph(link);
+});
+function RefreshElementsOfGraph(link){
     graph.getElements().forEach(el => {
         const attachment = el.get('linkAttachment');
         if (attachment && attachment.linkId === link.id) {
-            updateRectanglePosition(el);
+            if (el.get('type') === 'custom.Worm') {
+                updateWormShape(el);
+            } 
+            else if (el.get('type') === 'custom.UpBottomStroke') {
+                updateUpBottomStrokeShape(el);
+            }
+            else {
+                updateRectanglePosition(el);
+            }
         }
     });
-});
-
+}
 
 const paper = new joint.dia.Paper({
     el: document.getElementById('paper'),
@@ -996,7 +1049,12 @@ function showLinkColorMenu({ x, y, linkView, segmentIndex }) {
                 executeWithSnapshot(graph, () => {
                     splitLinkAtPointWithRectangle(linkView, x,y);
                 });
+            }else if(action==='add-worm'){                
+                insertWormOnLink(link,x,y);
+            }else if(action==='add-up-bottom-stroke'){
+                insertUpBottomStroke(link,x,y);
             }
+            
             colorMenu.style.display = 'none';
         }
         
@@ -1023,6 +1081,203 @@ function executeWithSnapshot(graph, fn) {
     // }]);
     redoStack.length = 0;
 }
+function insertWormOnLink(link, x,y) {
+    graph.startBatch();
+    const linkView = paper.findViewByModel(link);
+    if (!linkView) return;
+
+    const localPoint = paper.clientToLocalPoint({
+        x: x,
+        y: y
+    });
+
+    const connection = linkView.getConnection();
+
+    const totalLength = connection.length();
+    const closestLength = connection.closestPointLength(localPoint);
+    // let ratio = closestLength / totalLength;
+    // ratio = Math.max(0, Math.min(1, ratio));
+    // ratio = Math.round(ratio * 1000) / 1000; // optional: 0.001 precision
+    let ratio = Math.max(0, Math.min(1, closestLength / totalLength));
+    const worm = new joint.shapes.custom.Worm();
+
+    worm.set('linkAttachment', {
+        linkId: link.id,
+        ratio
+    });
+
+    graph.addCell(worm);
+
+    updateWormShape(worm);
+    graph.stopBatch();
+}
+function updateWormShape(worm) {
+
+    const attachment = worm.get('linkAttachment');
+    if (!attachment) return;
+
+    const link = graph.getCell(attachment.linkId);
+    if (!link) return;
+
+    const linkView = paper.findViewByModel(link);
+    if (!linkView) return;
+
+    const connection = linkView.getConnection();
+    if (!connection) return;
+
+    // 🚀 CRITICAL FIX
+    worm.position(0, 0);
+    worm.rotate(0);
+
+    const ratio = attachment.ratio;
+    const segments = 6;
+    const baseHeight = 30;
+
+
+    const pixelLength =  60;
+    const totalLength = connection.length();
+    const wormLength = pixelLength / totalLength; // convert px to ratio
+    const step = wormLength / segments;
+
+    
+    const thinning = link.attr('line/organicStrokeThinning') || 0;
+    let organicSize = (link.attr('line/organicStrokeSize') || baseHeight);
+    if(thinning!=0){
+        organicSize=organicSize+(organicSize+link.attr('line/strokeWidth'))/2;
+    }
+    const top = [];
+    const bottom = [];
+
+    for (let i = -segments; i <= segments; i++) {
+
+        let r = ratio + i *step;// 0.01;
+        r = Math.max(0, Math.min(1, r));
+        const p = connection.pointAt(r);
+        if (!p) continue;
+
+        const delta = 0.002;
+        const before = connection.pointAt(Math.max(0, r - delta));
+        const after  = connection.pointAt(Math.min(1, r + delta));
+        if (!before || !after) continue;
+
+        const dx = after.x - before.x;
+        const dy = after.y - before.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (!len) continue;
+
+        const perpX = -dy / len;
+        const perpY = dx / len;
+        const height =organicSize * (1 - thinning * r);
+        top.push(`${p.x + perpX * height/2},${p.y + perpY * height/2}`);
+        bottom.unshift(`${p.x - perpX * height/2},${p.y - perpY * height/2}`);
+    }
+
+    const pathD = `M ${top.join(' L ')} L ${bottom.join(' L ')} Z`;
+
+    worm.attr('body/d', pathD);
+    //linkView.removeTools();
+}
+function insertUpBottomStroke(link, x,y) {
+    graph.startBatch();
+    const linkView = paper.findViewByModel(link);
+    if (!linkView) return;
+
+    const localPoint = paper.clientToLocalPoint({
+        x: x,
+        y: y
+    });
+
+    const connection = linkView.getConnection();
+
+    const totalLength = connection.length();
+    const closestLength = connection.closestPointLength(localPoint);
+    // let ratio = closestLength / totalLength;
+    // ratio = Math.max(0, Math.min(1, ratio));
+    // ratio = Math.round(ratio * 1000) / 1000; // optional: 0.001 precision
+    let ratio = Math.max(0, Math.min(1, closestLength / totalLength));
+    const upBottomStrokeShape = new joint.shapes.custom.UpBottomStroke();
+
+    upBottomStrokeShape.set('linkAttachment', {
+        linkId: link.id,
+        ratio
+    });
+
+    graph.addCell(upBottomStrokeShape);
+
+    updateUpBottomStrokeShape(upBottomStrokeShape);
+    graph.stopBatch();
+}
+function updateUpBottomStrokeShape(upBottomStrokeShape) {
+    const attachment = upBottomStrokeShape.get('linkAttachment');
+    if (!attachment) return;
+
+    const link = graph.getCell(attachment.linkId);
+    if (!link) return;
+
+    const linkView = paper.findViewByModel(link);
+    if (!linkView) return;
+
+    const connection = linkView.getConnection();
+    if (!connection) return;
+
+    upBottomStrokeShape.position(0, 0);
+    upBottomStrokeShape.rotate(0);
+
+    const ratio = attachment.ratio;
+    const segments = 6;
+    const baseHeight = 30;
+    const pixelLength = 60;
+    const totalLength = connection.length();
+    const upBottomStrokeShapeLength = pixelLength / totalLength;
+    const step = upBottomStrokeShapeLength / segments;
+
+    const thinning = link.attr('line/organicStrokeThinning') || 0;
+    let organicSize = link.attr('line/organicStrokeSize') || baseHeight;
+    if (thinning != 0) {
+        organicSize = organicSize + (organicSize + (link.attr('line/strokeWidth') || 2)) / 2;
+    }
+
+    const topPoints = [];
+    const bottomPoints = [];
+
+    for (let i = -segments; i <= segments; i++) {
+        let r = Math.max(0, Math.min(1, ratio + i * step));
+        const p = connection.pointAt(r);
+        if (!p) continue;
+
+        const delta = 0.002;
+        const before = connection.pointAt(Math.max(0, r - delta));
+        const after = connection.pointAt(Math.min(1, r + delta));
+        if (!before || !after) continue;
+
+        const dx = after.x - before.x;
+        const dy = after.y - before.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (!len) continue;
+
+        const perpX = -dy / len;
+        const perpY = dx / len;
+        const height = organicSize * (1 - thinning * r);
+
+        topPoints.push(`${p.x + perpX * height/2},${p.y + perpY * height/2}`);
+        bottomPoints.unshift(`${p.x - perpX * height/2},${p.y - perpY * height/2}`);
+    }
+
+    if (!topPoints.length || !bottomPoints.length) return;
+
+    const fillD = `M ${topPoints.join(' L ')} L ${bottomPoints.join(' L ')} Z`;
+    const topD = `M ${topPoints.join(' L ')}`;
+    const bottomD = `M ${bottomPoints.join(' L ')}`;
+
+    upBottomStrokeShape.attr({
+        fillBody: { d: fillD },
+        topPath: { d: topD, stroke: 'yellow' },      // top stroke color
+        bottomPath: { d: bottomD, stroke: 'yellow' } // bottom stroke color
+    });
+
+    //linkView.removeTools();
+}
+
 function updateRectanglePosition(rect) {
 
       const attachment = rect.get('linkAttachment');
@@ -1072,7 +1327,7 @@ function updateRectanglePosition(rect) {
     if (!point) return;
 
     // compute tangent manually
-    const delta = Math.min(0.01, 1 / totalLength);
+    const delta =  0.002;
     const before = connection.pointAt(Math.max(0, ratio - delta));
     const after  = connection.pointAt(Math.min(1, ratio + delta));
     if (!before || !after) return;
@@ -1157,8 +1412,8 @@ function insertRectangleOnLink(link,x,y) {
     graph.stopBatch();
 }
 paper.on('element:pointermove', function(view, evt, x, y) {
-    const rect = view.model;
-    const attachment = rect.get('linkAttachment');
+    const element = view.model;
+    const attachment = element.get('linkAttachment');
     if (!attachment) return;
 
     const link = graph.getCell(attachment.linkId);
@@ -1173,37 +1428,43 @@ paper.on('element:pointermove', function(view, evt, x, y) {
     const closestLength = connection.closestPointLength({ x, y });
     const ratio = closestLength / totalLength;
 
-    rect.set('linkAttachment', {
+    element.set('linkAttachment', {
         linkId: attachment.linkId,
         ratio: ratio
     });
-
-    updateRectanglePosition(rect);
+    if (element.isElement() && element.get('type') === 'custom.Worm') {
+        updateWormShape(element);
+    } else if(element.isElement() && element.get('type') === 'custom.UpBottomStroke') {
+        updateUpBottomStrokeShape(element);
+    }
+    else {
+        updateRectanglePosition(element);
+    }
 });
 const dragStartPosition = new Map();
 
 paper.on('element:pointerdown', (view, evt) => {
-    const rect = view.model;
-    if (!rect.get('linkAttachment')) return;
+    const element = view.model;
+    if (!element.get('linkAttachment')) return;
     // store initial position before drag for undo
-    dragStartPosition.set(rect.id, rect.get('linkAttachment').ratio);
+    dragStartPosition.set(element.id, element.get('linkAttachment').ratio);
 });
 
 paper.on('element:pointerup', (view, evt) => {
-    const rect = view.model;
-    const attachment = rect.get('linkAttachment');
+    const element = view.model;
+    const attachment = element.get('linkAttachment');
     if (!attachment) return;
 
-    const startRatio = dragStartPosition.get(rect.id);
-    dragStartPosition.delete(rect.id);
+    const startRatio = dragStartPosition.get(element.id);
+    dragStartPosition.delete(element.id);
 
-    const endRatio = rect.get('linkAttachment').ratio;
+    const endRatio = element.get('linkAttachment').ratio;
 
     if (startRatio === undefined || startRatio === endRatio) return;
 
     pushOperation({
         type: 'moveAttachment',
-        element: rect,
+        element: element,
         from: startRatio,
         to: endRatio
     });
@@ -1442,8 +1703,10 @@ function deleteVertex(linkView, vertexIndex) {
 const labelLayerEl = paper.getLayerNode('labels');
 labelLayerEl.parentElement.appendChild(labelLayerEl);
 // Events
-function onPaperLinkMouseEnter(linkView) {
+function onPaperLinkMouseEnter(linkView,evt) {
     if (menuOpen) return;
+    const target = evt.target;
+    if (target.closest('.custom-shape')) return;
     // Scale the tools based on the width of the link.
     const branchWidth = linkView.model.attr('line/organicStrokeSize') || 5;
     const scale = Math.max(1, Math.min(2, branchWidth / 5));

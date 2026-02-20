@@ -48,7 +48,28 @@ joint.shapes.custom.UpBottomStroke = joint.dia.Element.define('custom.UpBottomSt
         { tagName: 'path', selector: 'bottomPath' }
     ]
 });
-
+const SvgElement = joint.dia.Element.define('custom.SvgElement', {
+    size: { width: 120, height: 80 },
+    attrs: {
+        body: {
+            refWidth: '100%',
+            refHeight: '100%',
+            fill: 'transparent'
+        },
+        svgImage: {
+            refWidth: '100%',
+            refHeight: '100%',
+            xlinkHref: 'assets/HeadDia.svg'
+        }
+    }
+}, {
+    markup: [
+        {
+            tagName: 'image',
+            selector: 'svgImage'
+        }
+    ]
+});
 class Species extends joint.dia.Element {
     defaults() {
         return {
@@ -150,10 +171,12 @@ class Branch extends joint.dia.Link {
                     fill: colors.link,
                     stroke: '#000000',
                     strokeWidth: 3,
+                        strokeLinecap: 'round',
                     // Custom attributes
                     organicStroke: true,
                     organicStrokeSize: 20,
                     organicStrokeThinning:0,
+                    organicStrokeTaper:false
                 },
             },
         };
@@ -257,6 +280,10 @@ class Branch extends joint.dia.Link {
                     thinning: attrs['organic-stroke-thinning'] ?? 0, // <-- read from attrs
                     simulatePressure: false,
                     last: true,
+                    end:{
+                        taper: attrs['organic-stroke-taper'] ?? false,
+                        //cap:true
+                    },
                 });
                 // How to interpolate the points to get the outline?
                 const d = quadraticInterpolation(outlinePoints);
@@ -269,6 +296,7 @@ class Branch extends joint.dia.Link {
         // They are only meant to be used in the `organicStroke` function.
         'organic-stroke-size': {},
         'organic-stroke-thinning': {}, // <-- new attribute
+        'organic-stroke-taper': {},
     };
 }
 // Stroke Style
@@ -2047,13 +2075,20 @@ paper.on('link:pointerdblclick', (linkView, evt) => {
 // Branches
 // --------
 const origin = { x: 352, y: -62 };
+const rootLink = new SvgElement({
+    position: { x: 352, y: -62 }
+});
 const laLink = new Branch({
-    source: origin,
-    target: { x: 83, y: 213 },
-    vertices: [{ x: 352, y: 46 }, { x: 176, y: 104 }],
+    source: {
+        id: rootLink.id,
+    },
+    target: { x: 97, y: 859 },
+    vertices: [{ x: 352, y: 46 }, { x: 176, y: 104 }, 
+        { x: 83, y: 213 },{ x: -10, y: 369 }, { x: -70, y: 509 },{ x: -30, y: 620 }],
     attrs: {
         line: {
-            organicStrokeSize: 30,
+            organicStrokeSize: 20,
+            organicStrokeThinning:0,
         },
     },
     labels: [
@@ -2064,25 +2099,10 @@ const laLink = new Branch({
                 },
             },
             position: {
-                distance: 0.65,
+                distance: 0.15,
                 angle: 10,
             },
         },
-    ],
-});
-const lbLink = new Branch({
-    source: {
-        id: laLink.id,
-        anchor: { name: 'connectionRatio', args: { ratio: 1 } },
-    },
-    target: { x: -30, y: 620 },
-    vertices: [{ x: -10, y: 369 }, { x: -70, y: 509 }],
-    attrs: {
-        line: {
-            organicStrokeSize: 30,
-        },
-    },
-    labels: [
         {
             attrs: {
                 labelText: {
@@ -2090,7 +2110,18 @@ const lbLink = new Branch({
                 },
             },
             position: {
-                distance: 0.45,
+                distance: 0.55,
+                angle: 10,
+            },
+        },
+        {
+            attrs: {
+                labelText: {
+                    text: 'AMARG',
+                },
+            },
+            position: {
+                distance: 0.95,
                 angle: 10,
             },
         },
@@ -2098,8 +2129,8 @@ const lbLink = new Branch({
 });
 const lcLink = new Branch({
     source: {
-        id: lbLink.id,
-        anchor: { name: 'connectionRatio', args: { ratio: 1 } },
+        id: laLink.id,
+        anchor: { name: 'connectionRatio', args: { ratio: 0.7 } },
     },
     target: { x: 181, y: 611 },
     vertices: [{ x: 72, y: 663 }, { x: 118, y: 614 }],
@@ -2122,36 +2153,9 @@ const lcLink = new Branch({
         },
     ],
 });
-const ldLink = new Branch({
-    source: {
-        id: lbLink.id,
-        anchor: { name: 'connectionRatio', args: { ratio: 1 } },
-    },
-    target: { x: 97, y: 859 },
-    attrs: {
-        line: {
-            organicStrokeSize: 16,
-            organicStrokeThinning: 0.8, 
-        },
-    },
-    labels: [
-        {
-            attrs: {
-                labelText: {
-                    text: 'AMARG',
-                },
-            },
-            position: {
-                distance: 0.45,
-                angle: 10,
-            },
-        },
-    ],
-});
 const raLink = new Branch({
     source: {
-        id: laLink.id,
-        anchor: { name: 'connectionRatio', args: { ratio: 0.2 } },
+        id: rootLink.id,
     },
     target: { x: 523, y: 134 },
     attrs: {
@@ -2494,10 +2498,9 @@ const rmLink = new Branch({
     ],
 });
 graph.addCells([
+    rootLink,
     laLink,
-    lbLink,
     lcLink,
-    ldLink,
     raLink,
     rbLink,
     rcLink,

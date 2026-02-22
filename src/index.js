@@ -1166,7 +1166,10 @@ function updateWormShape(worm) {
     const totalLength = connection.length();
     const wormLength = pixelLength / totalLength; // convert px to ratio
     const step = wormLength / segments;
-
+    const safeRatio = Math.max(
+        wormLength,
+        Math.min(1 - wormLength, ratio)
+    );
     
     const thinning = link.attr('line/organicStrokeThinning') || 0;
     let organicSize = (link.attr('line/organicStrokeSize') || baseHeight);
@@ -1177,13 +1180,13 @@ function updateWormShape(worm) {
     const bottom = [];
 
     for (let i = -segments; i <= segments; i++) {
-
-        let r = ratio + i *step;// 0.01;
-        r = Math.max(0, Math.min(1, r));
+        let r = safeRatio + i * step;
+       // let r = ratio + i *step;// 0.01;
+        //r = Math.max(0, Math.min(1, r));
         const p = connection.pointAt(r);
         if (!p) continue;
 
-        const delta = 0.002;
+        const delta = step / 2;//0.002;
         const before = connection.pointAt(Math.max(0, r - delta));
         const after  = connection.pointAt(Math.min(1, r + delta));
         if (!before || !after) continue;
@@ -1258,7 +1261,10 @@ function updateUpBottomStrokeShape(upBottomStrokeShape) {
     const totalLength = connection.length();
     const upBottomStrokeShapeLength = pixelLength / totalLength;
     const step = upBottomStrokeShapeLength / segments;
-
+    const safeRatio = Math.max(
+        upBottomStrokeShapeLength,
+        Math.min(1 - upBottomStrokeShapeLength, ratio)
+    );
     const thinning = link.attr('line/organicStrokeThinning') || 0;
     let organicSize = link.attr('line/organicStrokeSize') || baseHeight;
     if (thinning != 0) {
@@ -1269,11 +1275,12 @@ function updateUpBottomStrokeShape(upBottomStrokeShape) {
     const bottomPoints = [];
 
     for (let i = -segments; i <= segments; i++) {
-        let r = Math.max(0, Math.min(1, ratio + i * step));
+        //let r = Math.max(0, Math.min(1, ratio + i * step));
+        let r = safeRatio + i * step;
         const p = connection.pointAt(r);
         if (!p) continue;
 
-        const delta = 0.002;
+        const delta = step / 2;//0.002;
         const before = connection.pointAt(Math.max(0, r - delta));
         const after = connection.pointAt(Math.min(1, r + delta));
         if (!before || !after) continue;

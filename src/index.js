@@ -51,19 +51,35 @@ joint.shapes.custom.UpBottomStroke = joint.dia.Element.define('custom.UpBottomSt
 
 // 2️⃣ Define the FormNote element
 // FormNote element
+// Define FormNote element
 joint.shapes.custom.FormNote = joint.dia.Element.define(
     'custom.FormNote',
     {
-        size: { width: 220, height: 130 }  // MUST set size
+        size: { width: 350, height: 300 },
     },
     {
         markup: [
             {
+                tagName: 'rect',
+                selector: 'body',
+                attributes: {
+                    width: 350,
+                    height: 300,
+                    fill: '#fffbe6',
+                    stroke: '#333',
+                    rx: 10,
+                    ry: 10
+                }
+            },
+            {
                 tagName: 'foreignObject',
                 selector: 'fo',
                 attributes: {
-                    width: '100%',
-                    height: '100%'
+                    width: 350,
+                    height: 300,
+                    x: 0,
+                    y: 0,
+                    overflow: 'hidden'
                 },
                 children: [
                     {
@@ -71,7 +87,15 @@ joint.shapes.custom.FormNote = joint.dia.Element.define(
                         namespaceURI: 'http://www.w3.org/1999/xhtml',
                         selector: 'formContainer',
                         attributes: {
-                            style: `width:100%; height:100%;`
+                            style: `
+                                width:350px;
+                                height:300px;
+                                margin:0;
+                                padding:0;
+                                box-sizing:border-box;
+                                font-size:10px;
+                                overflow:hidden;
+                            `
                         }
                     }
                 ]
@@ -80,46 +104,38 @@ joint.shapes.custom.FormNote = joint.dia.Element.define(
     }
 );
 
-// FormNote view
 joint.shapes.custom.FormNoteView = joint.dia.ElementView.extend({
     render() {
         joint.dia.ElementView.prototype.render.apply(this, arguments);
+        const container = this.el.querySelector('[joint-selector="formContainer"]');
+        if (!container) return this;
 
-         //const container = this.findBySelector('formContainer')[0];
-         const container = this.el.querySelector('[joint-selector="formContainer"]');
-        if (!container) {
-            console.warn('Form container not found!');
-            return this;
-        }
-
-        // Populate the note
         container.innerHTML = `
-  <div style="
-      width: 350px;
-    height: 300px;
-    box-sizing: border-box;
-    background: #fffbe6;
-    border: 2px solid #333;
-    border-radius: 10px;
-    padding: 35px;
-    font-family: sans-serif;
-    font-size: 28px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 20px;
-  ">
-      <div style="display:flex; flex-direction:column;">
-          <label style="font-weight:bold;">Name:</label>
-          <input type="text" style="padding:8px; font-size:28px;"/>
-      </div>
-      <div style="display:flex; flex-direction:column;">
-          <label style="font-weight:bold;">Count:</label>
-          <input type="number" style="padding:8px; font-size:28px;"/>
-      </div>
-  </div>
+    <div style="
+        width: 350px;
+        height: 300px;
+        box-sizing: border-box;
+        background: #fffbe6;
+        border: 2px solid #333;
+        border-radius: 10px;
+        padding: 35px;
+        font-family: sans-serif;
+        font-size: 28px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 20px;
+    ">
+        <div style="display:flex; flex-direction:column;">
+            <label style="font-weight:bold;">Name:</label>
+            <input type="text" style="padding:8px; font-size:28px;"/>
+        </div>
+        <div style="display:flex; flex-direction:column;">
+            <label style="font-weight:bold;">Count:</label>
+            <input type="number" style="padding:8px; font-size:28px;"/>
+        </div>
+    </div>
 `;
-
         return this;
     }
 });
@@ -919,24 +935,19 @@ function showElementMenu({ x, y, elementView}) {
                 model.remove();
             }
         }else if (action === 'add-note') {
-            addNoteToElement(model);
+            addNoteToElement(model,x,y);
         }
         elementMenu.style.display = 'none';
         menuOpen = false;
     };
 }
-function addNoteToElement(element) {
-    const bbox = element.getBBox();
-
-    const noteWidth = 140;
-    const noteHeight = 80;
-
-    const noteX = bbox.x + bbox.width + 20; // closer to the element
-    const noteY = bbox.y + (bbox.height / 2) - (noteHeight / 2); // center vertically
-
+function addNoteToElement(element,x,y) {
     const note = new joint.shapes.custom.FormNote({
-        position: { x: noteX, y: noteY },
-        size: { width: noteWidth, height: noteHeight }
+       position: {
+            x: x + element.size().width + 20,//40
+            y: y//1050
+        },
+        size: { width: 350, height: 300 } // ensures correct size
     });
 
     graph.addCell(note);
@@ -944,19 +955,11 @@ function addNoteToElement(element) {
     const link = new joint.shapes.standard.Link({
         source: { id: element.id },
         target: { id: note.id },
-        attrs: {
-            line: { stroke: '#666', strokeWidth: 1, strokeDasharray: '4 2' }
-        },
-        connector: { name: 'smooth' } // smoother curves
+        connector: { name: 'smooth' },
+        attrs: { line: { stroke: '#666', strokeWidth: 1, strokeDasharray: '4 2' } }
     });
 
     graph.addCell(link);
-
-    // Optional: make note follow element when moved
-    element.on('change:position', () => {
-        const newBBox = element.getBBox();
-        note.position(newBBox.x + newBBox.width + 40, newBBox.y);
-    });
 }
 paper.el.addEventListener('contextmenu', (evt) => {
     // Stop browser menu immediately

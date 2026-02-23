@@ -8,6 +8,12 @@
     <link rel="stylesheet" href="index.css">
 </head>
 <body>
+    <div id="element-menu" class="context-menu">
+        <ul>
+            <li data-action="delete">Delete</li>
+            <li data-action="add-note">Add Note</li>
+        </ul>
+    </div>
     <div id="vertex-menu" class="context-menu">
         <ul>
             <li data-action="delete">Delete vertex</li>
@@ -17,7 +23,7 @@
     </div>
     <div id="link-color-menu" class="context-menu">
         <ul>
-            <li>
+            <!-- <li>
                 Color
                 <ul>
                     <li data-color="#ff0000">Red</li>
@@ -25,18 +31,20 @@
                     <li data-color="#0055ff">Blue</li>
                     <li data-color="#000000">Black</li>
                 </ul>
-            </li>
+            </li> -->
             <li data-action="hide-label">Hide Labels</li>
             <li data-action="show-label">Show Labels</li>
-            <li data-action="add-rectangle">Add Rectangle</li>
-            <li data-action="divide-segment">Divide Segment</li>
-            <li data-action="add-worm">Add Worm</li>
-            <li data-action="add-up-bottom-stroke">Add up and bottom stroke</li>
+            <!-- <li data-action="add-rectangle">Add Rectangle</li> -->
+            <!-- <li data-action="divide-segment">Divide Segment</li> -->
+            <li data-action="add-worm" data-color="#000000">Oclusion</li>
+            <li data-action="add-up-bottom-stroke">Stenosis</li>
         </ul>
     </div>
-    <div id="paper-wrapper" style="width:1000px; height:1000px; margin:0 auto; display:flex; justify-content:center; align-items:center; overflow:hidden;">
-    <div id="paper" style="width:100%; height:100%; background:url('assets/Coronary_arteries.svg') center center no-repeat; background-size:contain;"></div>
-</div>
+    <div id="paper-wrapper">
+        <div id="paper">
+            
+        </div>
+    </div>
     <script src="dist/bundle.js"></script>
 </body>
 </html>

@@ -21,7 +21,7 @@ joint.shapes.custom.Worm = joint.dia.Element.define('custom.Worm', {
             d: '',
             fill: '#4c4ed8',
             stroke: '#000000',
-            strokeWidth: 2,
+            strokeWidth: 3,
             class: 'custom-shape',
         }
     }
@@ -47,6 +47,81 @@ joint.shapes.custom.UpBottomStroke = joint.dia.Element.define('custom.UpBottomSt
         { tagName: 'path', selector: 'topPath' },
         { tagName: 'path', selector: 'bottomPath' }
     ]
+});
+
+// 2️⃣ Define the FormNote element
+// FormNote element
+joint.shapes.custom.FormNote = joint.dia.Element.define(
+    'custom.FormNote',
+    {
+        size: { width: 220, height: 130 }  // MUST set size
+    },
+    {
+        markup: [
+            {
+                tagName: 'foreignObject',
+                selector: 'fo',
+                attributes: {
+                    width: '100%',
+                    height: '100%'
+                },
+                children: [
+                    {
+                        tagName: 'div',
+                        namespaceURI: 'http://www.w3.org/1999/xhtml',
+                        selector: 'formContainer',
+                        attributes: {
+                            style: `width:100%; height:100%;`
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+);
+
+// FormNote view
+joint.shapes.custom.FormNoteView = joint.dia.ElementView.extend({
+    render() {
+        joint.dia.ElementView.prototype.render.apply(this, arguments);
+
+         //const container = this.findBySelector('formContainer')[0];
+         const container = this.el.querySelector('[joint-selector="formContainer"]');
+        if (!container) {
+            console.warn('Form container not found!');
+            return this;
+        }
+
+        // Populate the note
+        container.innerHTML = `
+  <div style="
+      width: 350px;
+    height: 300px;
+    box-sizing: border-box;
+    background: #fffbe6;
+    border: 2px solid #333;
+    border-radius: 10px;
+    padding: 35px;
+    font-family: sans-serif;
+    font-size: 28px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 20px;
+  ">
+      <div style="display:flex; flex-direction:column;">
+          <label style="font-weight:bold;">Name:</label>
+          <input type="text" style="padding:8px; font-size:28px;"/>
+      </div>
+      <div style="display:flex; flex-direction:column;">
+          <label style="font-weight:bold;">Count:</label>
+          <input type="number" style="padding:8px; font-size:28px;"/>
+      </div>
+  </div>
+`;
+
+        return this;
+    }
 });
 const SvgElement = joint.dia.Element.define('custom.SvgElement', {
     size: { width: 120, height: 80 },
@@ -191,7 +266,7 @@ class Branch extends joint.dia.Link {
         this.defaultLabel = {
             attrs: {
                 labelText: {
-                    fontSize: 14,
+                    fontSize: 34,
                     fontFamily: 'sans-serif',
                     letterSpacing: 5,
                     fill: colors.text,
@@ -380,6 +455,7 @@ const shapeNamespace = {
     ...joint.shapes,
     Species,
     Branch,
+    ...joint.shapes.custom,
 };
 const graph = new joint.dia.Graph({}, { cellNamespace: shapeNamespace });
 const undoStack = [];
@@ -806,6 +882,82 @@ const paper = new joint.dia.Paper({
         },
     },
 });
+document.addEventListener('contextmenu', function (e) {
+    e.preventDefault();
+});
+paper.on('element:contextmenu', function (elementView, evt) {
+    evt.preventDefault();
+    evt.stopPropagation();
+    menuOpen = true;
+    showElementMenu({
+        x: evt.clientX,
+        y: evt.clientY,
+        elementView
+    });
+    // const model = elementView.model;
+
+    // if (model.get('type') === 'custom.Worm') {
+    //     if (confirm('Delete this worm?')) {
+    //         model.remove();
+    //     }
+    // }
+});
+const elementMenu = document.getElementById('element-menu');
+function showElementMenu({ x, y, elementView}) {
+    const model = elementView.model;
+    elementMenu.style.display = 'none';
+    const left = x; //- paperRect.left;
+    const top = y; //- paperRect.top;
+    elementMenu.style.left = left + 'px';
+    elementMenu.style.top = top + 'px';
+    elementMenu.style.display = 'block';
+    elementMenu.onclick = e => {
+        const action = e.target.dataset.action;
+        if (!action) return;
+        if (action === 'delete') {
+            if (confirm('Do you want to delete this?')) {
+                model.remove();
+            }
+        }else if (action === 'add-note') {
+            addNoteToElement(model);
+        }
+        elementMenu.style.display = 'none';
+        menuOpen = false;
+    };
+}
+function addNoteToElement(element) {
+    const bbox = element.getBBox();
+
+    const noteWidth = 140;
+    const noteHeight = 80;
+
+    const noteX = bbox.x + bbox.width + 20; // closer to the element
+    const noteY = bbox.y + (bbox.height / 2) - (noteHeight / 2); // center vertically
+
+    const note = new joint.shapes.custom.FormNote({
+        position: { x: noteX, y: noteY },
+        size: { width: noteWidth, height: noteHeight }
+    });
+
+    graph.addCell(note);
+
+    const link = new joint.shapes.standard.Link({
+        source: { id: element.id },
+        target: { id: note.id },
+        attrs: {
+            line: { stroke: '#666', strokeWidth: 1, strokeDasharray: '4 2' }
+        },
+        connector: { name: 'smooth' } // smoother curves
+    });
+
+    graph.addCell(link);
+
+    // Optional: make note follow element when moved
+    element.on('change:position', () => {
+        const newBBox = element.getBBox();
+        note.position(newBBox.x + newBBox.width + 40, newBBox.y);
+    });
+}
 paper.el.addEventListener('contextmenu', (evt) => {
     // Stop browser menu immediately
     evt.preventDefault();
@@ -845,13 +997,22 @@ paper.el.addEventListener('contextmenu', (evt) => {
             });
         }
     } else {
+        const segmentIndex = getNearestSegmentIndex(view, paper, evt);
+        if (segmentIndex !== -1) {
+            showLinkColorMenu({
+                x: evt.clientX,
+                y: evt.clientY,
+                linkView: view,
+                segmentIndex
+            });
+        }
         // Show your custom menu
-        showVertexMenu({
-            x: evt.clientX,
-            y: evt.clientY,
-            linkView: view,
-            vertexIndex
-        });
+        // showVertexMenu({
+        //     x: evt.clientX,
+        //     y: evt.clientY,
+        //     linkView: view,
+        //     vertexIndex
+        // });
     }
 });
 function distancePointToSegment(p, a, b) {
@@ -1055,16 +1216,16 @@ function showLinkColorMenu({ x, y, linkView, segmentIndex }) {
         if (!activeLinkId) return;
         const link = graph.getCell(activeLinkId);
         const color = e.target.dataset.color;
+        const action = e.target.dataset.action;
         if (!link) return;
         const linkView = paper.findViewByModel(link);
         if (!linkView) return;
-        if (color){
+        if (color && !action){
             executeWithSnapshot(graph, () => {
                 splitLinkWithChildren(linkView, activeSegmentIndex, color);
             });
             colorMenu.style.display = 'none';
         }else{
-            const action = e.target.dataset.action;
             if (!action) return;
             if (action === 'hide-label') {
                 hideAllLinkLabels()
@@ -1078,7 +1239,7 @@ function showLinkColorMenu({ x, y, linkView, segmentIndex }) {
                     splitLinkAtPointWithRectangle(linkView, x,y);
                 });
             }else if(action==='add-worm'){                
-                insertWormOnLink(link,x,y);
+                insertWormOnLink(link,x,y,e.target.dataset.color);
             }else if(action==='add-up-bottom-stroke'){
                 insertUpBottomStroke(link,x,y);
             }
@@ -1109,7 +1270,7 @@ function executeWithSnapshot(graph, fn) {
     // }]);
     redoStack.length = 0;
 }
-function insertWormOnLink(link, x,y) {
+function insertWormOnLink(link, x,y,color) {
     graph.startBatch();
     const linkView = paper.findViewByModel(link);
     if (!linkView) return;
@@ -1128,7 +1289,7 @@ function insertWormOnLink(link, x,y) {
     // ratio = Math.round(ratio * 1000) / 1000; // optional: 0.001 precision
     let ratio = Math.max(0, Math.min(1, closestLength / totalLength));
     const worm = new joint.shapes.custom.Worm();
-
+    worm.attr('body/fill', color);
     worm.set('linkAttachment', {
         linkId: link.id,
         ratio
@@ -1138,6 +1299,7 @@ function insertWormOnLink(link, x,y) {
 
     updateWormShape(worm);
     graph.stopBatch();
+    linkView.removeTools();
 }
 function updateWormShape(worm) {
 
@@ -1237,6 +1399,8 @@ function insertUpBottomStroke(link, x,y) {
 
     updateUpBottomStrokeShape(upBottomStrokeShape);
     graph.stopBatch();
+    linkView.removeTools();
+
 }
 function updateUpBottomStrokeShape(upBottomStrokeShape) {
     const attachment = upBottomStrokeShape.get('linkAttachment');
@@ -1715,6 +1879,7 @@ let menuOpen = false;
 function onBlankAndElementdownClick(e) {
     menuEl.style.display = 'none';
     colorMenu.style.display = 'none';
+    elementMenu.style.display = 'none';
     menuOpen = false;
     activeLabelEditor?.remove();
     activeLabelEditor = null;

@@ -369,8 +369,11 @@ class Branch extends joint.dia.Link {
                     last: true,
                     end:{
                         taper: attrs['organic-stroke-taper'] ?? false,
-                        //cap:true
+                        cap:false
                     },
+                    start:{
+                        cap:false
+                    }
                 });
                 // How to interpolate the points to get the outline?
                 const d = quadraticInterpolation(outlinePoints);
@@ -2371,401 +2374,479 @@ paper.on('link:pointerdblclick', (linkView, evt) => {
 //]);
 // Branches
 // --------
-const laorigin = { x: 862, y: 804 };
+// const outerLink = new Branch({
+//     source: { x: 556, y: 46 },
+//     target: { x: 1225, y: 35 },
+//     vertices: [{ x: 527, y: 107 }, { x: 527, y: 168 }, 
+//         { x: 549, y: 274 },{ x: 552, y: 361 }, { x: 539, y: 424 },{ x: 495, y: 476 },{x:441,y:531}
+//         ,{x:377,y:618},{x:316,y:725},{x:262,y:868},{x:252,y:1036},{x:285,y:1181},{x:341,y:1303}
+//         ,{x:448,y:1484},{x:550,y:1622},{x:678,y:1741},
+//         {x:805,y:1864},{x:907,y:1907},{x:965,y:1910},
+//         {x:1065,y:1884},{x:1187,y:1833},{x:1317,y:1741},
+//         {x:1411,y:1634},{x:1503,y:1489},{x:1569,y:1346},
+//         {x:1579,y:1262},{x:1633,y:1189},{x:1681,y:1092},
+//         {x:1691,y:975},{x:1683,y:886},{x:1645,y:787},
+//         {x:1611,y:721},{x:1564,y:652},{x:1423,y:513},
+//         {x:1362,y:461},{x:1296,y:394},{x:1251,y:318},
+//         {x:1228,y:137}],
+//     attrs: {
+//         line: {
+//             fill: '#000000',
+//             stroke: '#000000',
+//             organicStrokeSize: 2,
+//             pointerEvents: 'none',
+//             //organicStrokeThinning:.8,
+//         },
+//     },
+//     //interactive: false   // 🔒 LOCKED
+// });
+// const outerLink2 = new Branch({
+//     source: { x: 641, y: 50 },
+//     target: { x: 955, y: 327 },
+//     vertices: [{ x: 631, y: 115 }, { x: 631, y: 176 }, 
+//         { x: 636, y: 257 },{ x: 657, y: 329 }, { x: 700, y: 423 },{ x: 731, y: 466 },{x:728,y:527}
+//         ,{x:731,y:576},{x:751,y:619},{x:797,y:645},{x:840,y:652},{x:886,y:632},{x:942,y:584}
+//         ,{x:980,y:609},{x:1024,y:594},{x:1049,y:568},
+//         {x:1068,y:508},{x:991,y:420},{x:965,y:401},
+//         {x:956,y:368}],
+//     attrs: {
+//         line: {
+//             fill: '#000000',
+//             stroke: '#000000',
+//             organicStrokeSize: 2,
+//             pointerEvents: 'none',
+//             //organicStrokeThinning:.8,
+//         },
+//     },
+//     //interactive: false   // 🔒 LOCKED
+// });
+// const outerLink3 = new Branch({
+//     source: { x: 886, y: 632 },
+//     target: { x: 980, y: 609 },
+//     vertices: [{ x: 924, y: 665 }, { x: 950, y: 660 }, 
+//         { x: 972, y: 641 }],
+//     attrs: {
+//         line: {
+//             fill: '#000000',
+//             stroke: '#000000',
+//             organicStrokeSize: 2,
+//             pointerEvents: 'none',
+//             //organicStrokeThinning:.8,
+//         },
+//     },
+//     //interactive: false   // 🔒 LOCKED
+// });
+// const outerLink4 = new Branch({
+//     source: { x: 1068, y: 508 },
+//     target: { x: 995, y: 424 },
+//     vertices: [{ x: 1116, y: 489 }, { x: 1103, y: 468 }, 
+//         { x: 1098, y: 434 },{ x: 1024, y: 429 }],
+//     attrs: {
+//         line: {
+//             fill: '#000000',
+//             stroke: '#000000',
+//             organicStrokeSize: 2,
+//             pointerEvents: 'none',
+//             //organicStrokeThinning:.8,
+//         },
+//     },
+//     //interactive: false   // 🔒 LOCKED
+// });
+joint.shapes.custom.Region = joint.dia.Element.define(
+    'custom.Region',
+    {
+        size: { width: 2000, height: 2000 },
+        attrs: {
+            // body: {
+            //     d: `
+            //         M 556 46 L 527 107 L 527 168 L 538 234 L 552 297 L 552 361 L 539 424 L 493 478 L 441 531 L 377 618 L 316 725 L 262 868 L 252 1036 L 285 1181 L 341 1303 L 448 1484 L 550 1622 L 657 1720 L 720 1792 L 805 1864 L 907 1907 L 965 1910 L 1065 1884 L 1187 1833 L 1267 1782 L 1350 1702 L 1430 1609 L 1493 1501 L 1535 1421 L 1567 1333 L 1575 1278 L 1585 1253 L 1635 1185 L 1671 1107 L 1689 1040 L 1691 975 L 1683 886 L 1645 787 L 1611 721 L 1564 652 L 1423 513 L 1332 443 L 1289 395 L 1245 318 l -19 -96 L 1224 137 L 1225 25 M 641 50 L 631 115 L 631 176 L 636 257 L 657 329 L 700 423 L 731 466 L 728 527 L 731 576 L 751 619 L 781 640 L 807 650 L 840 652 L 867 642 L 886 631 L 906 618 L 922 605 L 930 595 L 938 581 L 954 595 L 971 608 L 983 610 L 1000 605 L 1023 593 L 1042 573 L 1054 556 L 1061 542 L 1070 514 L 991 420 L 965 401 L 956 368 L 955 327 M 886 631 L 896 650 L 907 661 L 920 666 L 939 665 L 951 660 L 962 653 L 971 642 L 980 629 L 983 610 M 1070 514 L 1076 522 L 1116 489 L 1103 467 L 1098 434 L 1024 429 L 995 424
+            //     `,
+            //     fill: '#ffffff',
+            //     stroke: '#000000',
+            //     strokeWidth: 6,
+            //     pointerEvents: 'none'
 
-const laLink = new Branch({
-    source: laorigin,
-    target: { x: 1128, y: 1530 },
-    vertices: [{ x: 768, y: 891 }, { x: 707, y: 973 }, 
-        { x: 681, y: 1058 },{ x: 620, y: 1226 }, { x: 601, y: 1304 },{ x: 599, y: 1383 },{x:632,y:1398}
-        ,{x:693,y:1383},{x:794,y:1270},{x:840,y:1255},{x:896,y:1272},{x:937,y:1311},{x:987,y:1374}
-        ,{x:1004,y:1433},{x:1069,y:1466},{x:1092,y:1507}],
+            // },
+            area1: {
+                d: 'M 556 46 L 527 107 L 527 168 L 538 234 L 552 297 L 552 361 L 539 424 L 493 478 L 441 531 L 377 618 L 316 725 L 262 868 L 252 1036 L 285 1181 L 341 1303 L 448 1484 L 550 1622 L 657 1720 L 720 1792 L 805 1864 L 907 1907 L 965 1910 L 1065 1884 L 1187 1833 L 1267 1782 L 1350 1702 L 1430 1609 L 1493 1501 L 1535 1421 L 1567 1333 L 1575 1278 L 1585 1253 L 1635 1185 L 1671 1107 L 1689 1040 L 1691 975 L 1683 886 L 1645 787 L 1611 721 L 1564 652 L 1423 513 L 1332 443 L 1289 395 L 1245 318 l -19 -96 L 1224 137 L 1225 25',
+                fill: '#ffffff',
+                stroke: '#000',
+                strokeWidth: 4,
+                pointerEvents: 'none'
+            },
+            area2: {
+                d: 'M 641 50 L 631 115 L 631 176 L 636 257 L 657 329 L 700 423 L 731 466 L 728 527 L 731 576 L 751 619 L 781 640 L 807 650 L 840 652 L 867 642 L 886 631 L 906 618 L 922 605 L 930 595 L 938 581 L 954 595 L 971 608 L 983 610 L 1000 605 L 1023 593 L 1042 573 L 1054 556 L 1061 542 L 1070 514 L 991 420 L 965 401 L 956 368 L 955 327',
+                fill: '#ffffff',
+                stroke: '#000',
+                strokeWidth: 4,
+                pointerEvents: 'none'
+            },
+            area3: {
+                d: 'M 886 631 L 896 650 L 907 661 L 920 666 L 939 665 L 951 660 L 962 653 L 971 642 L 980 629 L 983 610',
+                fill: '#ffffff',
+                stroke: '#000',
+                strokeWidth: 4,
+                pointerEvents: 'none'
+            },
+            area4: {
+                d: 'M 1070 514 L 1077 522 L 1116 489 L 1103 468 L 1098 434 L 1024 429 L 991 420 z',
+                fill: '#ED2E24',
+                stroke: '#000',
+                strokeWidth: 4,
+                pointerEvents: 'none'
+            }
+        }
+    },
+    {
+        markup: [
+            { tagName: 'path', selector: 'area1' },
+            { tagName: 'path', selector: 'area2' },
+            { tagName: 'path', selector: 'area3' },
+            { tagName: 'path', selector: 'area4' }
+        ]
+    }
+);
+const mporigin = { x: 1101, y: 449 };
+const mpLink = new Branch({
+    source: { x: 1123, y: 582 },
+    target: mporigin,
+    vertices: [{ x: 1157, y: 543 }, { x: 1169, y: 491 },{ x: 1155, y: 457 } 
+        ],
     attrs: {
         line: {
+            fill: '#C07BAE',//colors.link,
+            stroke: '#000000',
+            strokeWidth:1,
+            organicStrokeSize: 50,
+            organicStrokeThinning:.5,
+            organicStrokeTaper:0,
+        },
+    },
+});
+const myLink = new Branch({
+    source: {
+        id: mpLink.id,
+        anchor: { name: 'connectionRatio', args: { ratio: 0 } },
+    },
+    target: { x: 967, y: 1788 },
+    vertices: [{ x: 1078, y: 632 },{ x: 864, y: 1166 }, { x: 797, y: 1203 },{ x: 782, y: 1323 },{x:782,y:1431}
+        ,{x:765,y:1501},{x:815,y:1770},{x:861,y:1896},{x:894,y:1925},{x:935,y:1876}],
+    attrs: {
+        line: {
+            fill:"#EFE648",
+            stroke: '#000000',
+            strokeWidth:1,
+            organicStrokeSize: 30,
+            organicStrokeThinning:.3,
+            organicStrokeTaper:1,
+        },
+    },
+});
+const myLeftLink = new Branch({
+    source: {
+        id: mpLink.id,
+        anchor: { name: 'connectionRatio', args: { ratio: 0 } },
+    },
+    target: { x: 818, y: 816 },
+    vertices: [{ x: 1058, y: 620 },{ x: 977, y: 693 }, { x: 907, y: 735 }],
+    attrs: {
+        line: {
+            fill:"#EFE648",
+            stroke: '#000000',
+            strokeWidth:1,
+            organicStrokeSize: 25,
+            organicStrokeThinning:.3,
+            organicStrokeTaper:1,
+        },
+    },
+});
+const myLeftBLink = new Branch({
+    source: {
+        id: myLeftLink.id,
+        anchor: { name: 'connectionRatio', args: { ratio: 0.45 } },
+    },
+    target: { x: 915, y: 832 },
+    vertices: [{ x: 965, y: 736 },{ x: 953, y: 776 }],
+    attrs: {
+        line: {
+            fill:"#EFE648",
+            stroke: '#000000',
+            strokeWidth:1,
             organicStrokeSize: 20,
-            organicStrokeThinning:.8,
+            organicStrokeThinning:.3,
+            organicStrokeTaper:1,
         },
     },
-    labels: [
-        {
-            attrs: {
-                labelText: {
-                    text: 'PRCA',
-                },
-            },
-            position: {
-                distance: 0.15,
-                angle: 10,
-            },
-        },
-        {
-            attrs: {
-                labelText: {
-                    text: 'MRCA',
-                },
-            },
-            position: {
-                distance: 0.55,
-                angle: 10,
-            },
-        },
-        {
-            attrs: {
-                labelText: {
-                    text: 'AMARG',
-                },
-            },
-            position: {
-                distance: 0.95,
-                angle: 10,
-            },
-        },
-    ],
 });
-const lb0Link = new Branch({
+const myRightLink = new Branch({
     source: {
-        id: laLink.id,
-        anchor: { name: 'connectionRatio', args: { ratio: 0.03 } },
+        id: mpLink.id,
+        anchor: { name: 'connectionRatio', args: { ratio: 0 } },
     },
-    target: { x: 718, y: 838 },
-    vertices: [{ x: 759, y: 794 }, { x: 733, y: 743 },{ x: 751, y: 720 },{ x: 821, y: 699 }
-        ,{ x: 830, y: 661 },{ x: 792, y: 643 },{ x: 718, y: 643 }, { x: 668, y: 667 }, { x: 639, y: 735 }
-        ,{ x: 665, y: 788 },{ x: 692, y: 829 },{ x: 718, y: 838 }
-    ],
+    target: { x: 1241, y: 1290 },
+    vertices: [{ x: 1144, y: 628 },{ x: 1152, y: 839 }, { x: 1144, y: 954 },{ x: 1162, y: 1042 },{ x: 1235, y: 1199 }],
     attrs: {
         line: {
-            organicStrokeSize: 10,
-            organicStrokeThinning:.8,
+            fill:"#EFE648",
+            stroke: '#000000',
+            strokeWidth:1,
+            organicStrokeSize: 25,
+            organicStrokeThinning:.3,
+            organicStrokeTaper:1,
         },
     },
-    labels: [
-        {
-            attrs: {
-                labelText: {
-                    text: 'DRCA',
-                },
-            },
-            position: {
-                distance: 0.45,
-                angle: 10,
-            },
-        },
-    ],
 });
-const lbLink = new Branch({
+const myRightBLink = new Branch({
     source: {
-        id: laLink.id,
-        anchor: { name: 'connectionRatio', args: { ratio: 0.1 } },
+        id: myRightLink.id,
+        anchor: { name: 'connectionRatio', args: { ratio: 0.4 } },
     },
-    target: { x: 933, y: 982 },
-    vertices: [{ x: 842, y: 944 }, { x: 892, y: 979 }],
+    target: { x: 1283, y: 1103 },
+    vertices: [{ x: 1169, y: 890 },{ x: 1219, y: 1001 }, { x: 1236, y: 1057 }],
     attrs: {
         line: {
-            organicStrokeSize: 10,
-            organicStrokeThinning:.8,
-        },
-    },
-    labels: [
-        {
-            attrs: {
-                labelText: {
-                    text: 'DRCA',
-                },
-            },
-            position: {
-                distance: 0.45,
-                angle: 10,
-            },
-        },
-    ],
-});
-const lcLink = new Branch({
-    source: {
-        id: laLink.id,
-        anchor: { name: 'connectionRatio', args: { ratio: 0.2 } },
-    },
-    target: { x: 951, y: 1236 },
-    vertices: [{ x: 742, y: 1130 }, { x: 810, y: 1159 },{x:877,y:1180},{x:910,y:1212}],
-    attrs: {
-        line: {
-            organicStrokeSize: 15,
-            organicStrokeThinning:.8,
-        },
-    },
-    labels: [
-        {
-            attrs: {
-                labelText: {
-                    text: 'DRCA',
-                },
-            },
-            position: {
-                distance: 0.45,
-                angle: 10,
-            },
-        },
-    ],
-});
-const ldLink = new Branch({
-    source: {
-        id: laLink.id,
-        anchor: { name: 'connectionRatio', args: { ratio: 0.35 } },
-    },
-    target: { x: 1039, y: 1507 },
-    vertices: [{ x: 712, y: 1306 }, { x: 765, y: 1368 },{x:874,y:1415},{x:957,y:1477}],
-    attrs: {
-        line: {
-            organicStrokeSize: 15,
-            organicStrokeThinning:.8,
-        },
-    },
-    labels: [
-        {
-            attrs: {
-                labelText: {
-                    text: 'DRCA',
-                },
-            },
-            position: {
-                distance: 0.45,
-                angle: 10,
-            },
-        },
-    ],
-});
-const leLink = new Branch({
-    source: {
-        id: laLink.id,
-        anchor: { name: 'connectionRatio', args: { ratio: 0.65 } },
-    },
-    target: { x: 904, y: 1121 },
-    vertices: [{ x: 789, y: 1250 }, { x: 804, y: 1221 },{x:848,y:1191},{x:874,y:1144}],
-    attrs: {
-        line: {
-            organicStrokeSize: 10,
-            organicStrokeThinning:.8,
-        },
-    },
-    labels: [
-        {
-            attrs: {
-                labelText: {
-                    text: 'DRCA',
-                },
-            },
-            position: {
-                distance: 0.45,
-                angle: 10,
-            },
-        },
-    ],
-});
-const raorigin = { x: 942, y: 738 };
-const raLink = new Branch({
-    source: raorigin,
-    target: { x: 1051, y: 1480 },
-    vertices: [{ x: 1019, y: 729 }, { x: 1081, y: 767 }, 
-        { x: 1157, y: 962 },{ x: 1199, y: 1085 }, { x: 1207, y: 1197 },{ x: 1184, y: 1292 },{x:1202,y:1336}
-        ,{x:1187,y:1442},{x:1156,y:1557},{x:1113,y:1579},{x:1084,y:1531},{x:1065,y:1511}],
-    attrs: {
-        line: {
+            fill:"#EFE648",
+            stroke: '#000000',
+            strokeWidth:1,
             organicStrokeSize: 20,
-            organicStrokeThinning:.8,
+            organicStrokeThinning:.3,
+            organicStrokeTaper:1,
         },
     },
-    labels: [
-        {
-            attrs: {
-                labelText: {
-                    text: 'PLM',
-                },
-            },
-            position: {
-                distance: 0.45,
-                angle: 10,
-            },
-        },
-    ],
 });
-const rbLink = new Branch({
-    source: {
-        id: raLink.id,
-        anchor: { name: 'connectionRatio', args: { ratio: 0.17 } },
-    },
-    target: { x: 1316, y: 947 },
-    vertices:[{x:1196,y:844},{x:1246,y:900}],
-    attrs: {
-        line: {
-            organicStrokeSize: 20,
-        },
-    },
-    labels: [
-        {
-            attrs: {
-                labelText: {
-                    text: 'PLAD',
-                },
-            },
-            position: {
-                distance: 0.45,
-                angle: 10,
-            },
-        },
-    ],
-});
-const rcLink = new Branch({
-    source: {
-        id: raLink.id,
-        anchor: { name: 'connectionRatio', args: { ratio: 0.3 } },
-    },
-    target: { x: 1375, y: 1471 },
-    vertices: [{ x: 1219, y: 973 },{ x: 1272, y: 1044 },{ x: 1319, y: 1118 },{ x: 1343, y: 1156 },{ x: 1355, y: 1215 }
-        ,{ x: 1375, y: 1262 },{ x: 1372, y: 1292 },{ x: 1390, y: 1336 },{ x: 1381, y: 1380 },{ x: 1390, y: 1427 }
-    ],
-    attrs: {
-        line: {
-            organicStrokeSize: 15,
-            organicStrokeThinning:0.8,
-        },
-    },
-    labels: [
-        {
-            attrs: {
-                labelText: {
-                    text: 'D1',
-                },
-            },
-            position: {
-                distance: 0.45,
-                angle: 10,
-            },
-        },
-    ],
-});
-const rdLink = new Branch({
-    source: {
-        id: raLink.id,
-        anchor: { name: 'connectionRatio', args: { ratio: 0.54 } },
-    },
-    target: { x: 1272, y: 1507 },
-    vertices:[{x:1243,y:1256},{x:1258,y:1348},{x:1278,y:1392},{x:1287,y:1445}],
-    attrs: {
-        line: {
-            organicStrokeSize: 15,
-            organicStrokeThinning:0.8
-        },
-    },
-    labels: [
-        {
-            attrs: {
-                labelText: {
-                    text: 'MLAD',
-                },
-            },
-            position: {
-                distance: 0.45,
-                angle: 10,
-            },
-        },
-    ],
-});
-const reLink = new Branch({
-    source: {
-        id: raLink.id,
-        anchor: { name: 'connectionRatio', args: { ratio: 0.29 } },
-    },
-    target: { x: 1069, y: 1203 },
-    vertices:[{x:1110,y:1021},{x:1113,y:1082},{x:1084,y:1109},{x:1098,y:1144},{x:1075,y:1168}],
-    attrs: {
-        line: {
-            organicStrokeSize: 15,
-            organicStrokeThinning:0.8
-        },
-    },
-    labels: [
-        {
-            attrs: {
-                labelText: {
-                    text: 'D2',
-                },
-            },
-            position: {
-                distance: 0.45,
-                angle: 10,
-            },
-        },
-    ],
-});
-const rfLink = new Branch({
-    source: {
-        id: raLink.id,
-        anchor: { name: 'connectionRatio', args: { ratio: 0.42 } },
-    },
-    target: { x: 1134, y: 1162 },
-    vertices:[{x:1169,y:1112},{x:1160,y:1138}],
-    attrs: {
-        line: {
-            organicStrokeSize: 8,
-            organicStrokeThinning: 0.8, 
-        },
-    },
-    labels: [
-        {
-            attrs: {
-                labelText: {
-                    text: 'DLAD',
-                },
-            },
-            position: {
-                distance: 0.45,
-                angle: 10,
-            },
-        },
-    ],
-});
-const rgLink = new Branch({
-    source: {
-        id: raLink.id,
-        anchor: { name: 'connectionRatio', args: { ratio: 0.55 } },
-    },
-    target: { x: 1045, y: 1362 },
-    vertices: [{ x: 1128, y: 1236 },{ x: 1110, y: 1277 },{ x: 1092, y: 1295 },{ x: 1092, y: 1321 },{ x: 1069, y: 1333 }],
-    attrs: {
-        line: {
-            organicStrokeSize: 10,
-            organicStrokeThinning:0.8,
-        },
-    },
-    labels: [
-        {
-            attrs: {
-                labelText: {
-                    text: 'Lat Ramus',
-                },
-            },
-            position: {
-                distance: 0.45,
-                angle: 10,
-            },
-        },
-    ],
-});
-// const rhLink = new Branch({
+// const laorigin = { x: 862, y: 804 };
+
+// const laLink = new Branch({
+//     source: laorigin,
+//     target: { x: 1128, y: 1530 },
+//     vertices: [{ x: 768, y: 891 }, { x: 707, y: 973 }, 
+//         { x: 681, y: 1058 },{ x: 620, y: 1226 }, { x: 601, y: 1304 },{ x: 599, y: 1383 },{x:632,y:1398}
+//         ,{x:693,y:1383},{x:794,y:1270},{x:840,y:1255},{x:896,y:1272},{x:937,y:1311},{x:987,y:1374}
+//         ,{x:1004,y:1433},{x:1069,y:1466},{x:1092,y:1507}],
+//     attrs: {
+//         line: {
+//             organicStrokeSize: 20,
+//             organicStrokeThinning:.8,
+//         },
+//     },
+//     labels: [
+//         {
+//             attrs: {
+//                 labelText: {
+//                     text: 'PRCA',
+//                 },
+//             },
+//             position: {
+//                 distance: 0.15,
+//                 angle: 10,
+//             },
+//         },
+//         {
+//             attrs: {
+//                 labelText: {
+//                     text: 'MRCA',
+//                 },
+//             },
+//             position: {
+//                 distance: 0.55,
+//                 angle: 10,
+//             },
+//         },
+//         {
+//             attrs: {
+//                 labelText: {
+//                     text: 'AMARG',
+//                 },
+//             },
+//             position: {
+//                 distance: 0.95,
+//                 angle: 10,
+//             },
+//         },
+//     ],
+// });
+// const lb0Link = new Branch({
+//     source: {
+//         id: laLink.id,
+//         anchor: { name: 'connectionRatio', args: { ratio: 0.03 } },
+//     },
+//     target: { x: 718, y: 838 },
+//     vertices: [{ x: 759, y: 794 }, { x: 733, y: 743 },{ x: 751, y: 720 },{ x: 821, y: 699 }
+//         ,{ x: 830, y: 661 },{ x: 792, y: 643 },{ x: 718, y: 643 }, { x: 668, y: 667 }, { x: 639, y: 735 }
+//         ,{ x: 665, y: 788 },{ x: 692, y: 829 },{ x: 718, y: 838 }
+//     ],
+//     attrs: {
+//         line: {
+//             organicStrokeSize: 10,
+//             organicStrokeThinning:.8,
+//         },
+//     },
+//     labels: [
+//         {
+//             attrs: {
+//                 labelText: {
+//                     text: 'DRCA',
+//                 },
+//             },
+//             position: {
+//                 distance: 0.45,
+//                 angle: 10,
+//             },
+//         },
+//     ],
+// });
+// const lbLink = new Branch({
+//     source: {
+//         id: laLink.id,
+//         anchor: { name: 'connectionRatio', args: { ratio: 0.1 } },
+//     },
+//     target: { x: 933, y: 982 },
+//     vertices: [{ x: 842, y: 944 }, { x: 892, y: 979 }],
+//     attrs: {
+//         line: {
+//             organicStrokeSize: 10,
+//             organicStrokeThinning:.8,
+//         },
+//     },
+//     labels: [
+//         {
+//             attrs: {
+//                 labelText: {
+//                     text: 'DRCA',
+//                 },
+//             },
+//             position: {
+//                 distance: 0.45,
+//                 angle: 10,
+//             },
+//         },
+//     ],
+// });
+// const lcLink = new Branch({
+//     source: {
+//         id: laLink.id,
+//         anchor: { name: 'connectionRatio', args: { ratio: 0.2 } },
+//     },
+//     target: { x: 951, y: 1236 },
+//     vertices: [{ x: 742, y: 1130 }, { x: 810, y: 1159 },{x:877,y:1180},{x:910,y:1212}],
+//     attrs: {
+//         line: {
+//             organicStrokeSize: 15,
+//             organicStrokeThinning:.8,
+//         },
+//     },
+//     labels: [
+//         {
+//             attrs: {
+//                 labelText: {
+//                     text: 'DRCA',
+//                 },
+//             },
+//             position: {
+//                 distance: 0.45,
+//                 angle: 10,
+//             },
+//         },
+//     ],
+// });
+// const ldLink = new Branch({
+//     source: {
+//         id: laLink.id,
+//         anchor: { name: 'connectionRatio', args: { ratio: 0.35 } },
+//     },
+//     target: { x: 1039, y: 1507 },
+//     vertices: [{ x: 712, y: 1306 }, { x: 765, y: 1368 },{x:874,y:1415},{x:957,y:1477}],
+//     attrs: {
+//         line: {
+//             organicStrokeSize: 15,
+//             organicStrokeThinning:.8,
+//         },
+//     },
+//     labels: [
+//         {
+//             attrs: {
+//                 labelText: {
+//                     text: 'DRCA',
+//                 },
+//             },
+//             position: {
+//                 distance: 0.45,
+//                 angle: 10,
+//             },
+//         },
+//     ],
+// });
+// const leLink = new Branch({
+//     source: {
+//         id: laLink.id,
+//         anchor: { name: 'connectionRatio', args: { ratio: 0.65 } },
+//     },
+//     target: { x: 904, y: 1121 },
+//     vertices: [{ x: 789, y: 1250 }, { x: 804, y: 1221 },{x:848,y:1191},{x:874,y:1144}],
+//     attrs: {
+//         line: {
+//             organicStrokeSize: 10,
+//             organicStrokeThinning:.8,
+//         },
+//     },
+//     labels: [
+//         {
+//             attrs: {
+//                 labelText: {
+//                     text: 'DRCA',
+//                 },
+//             },
+//             position: {
+//                 distance: 0.45,
+//                 angle: 10,
+//             },
+//         },
+//     ],
+// });
+// const raorigin = { x: 942, y: 738 };
+// const raLink = new Branch({
+//     source: raorigin,
+//     target: { x: 1051, y: 1480 },
+//     vertices: [{ x: 1019, y: 729 }, { x: 1081, y: 767 }, 
+//         { x: 1157, y: 962 },{ x: 1199, y: 1085 }, { x: 1207, y: 1197 },{ x: 1184, y: 1292 },{x:1202,y:1336}
+//         ,{x:1187,y:1442},{x:1156,y:1557},{x:1113,y:1579},{x:1084,y:1531},{x:1065,y:1511}],
+//     attrs: {
+//         line: {
+//             organicStrokeSize: 20,
+//             organicStrokeThinning:.8,
+//         },
+//     },
+//     labels: [
+//         {
+//             attrs: {
+//                 labelText: {
+//                     text: 'PLM',
+//                 },
+//             },
+//             position: {
+//                 distance: 0.45,
+//                 angle: 10,
+//             },
+//         },
+//     ],
+// });
+// const rbLink = new Branch({
 //     source: {
 //         id: raLink.id,
-//         anchor: { name: 'connectionRatio', args: { ratio: 1 } },
+//         anchor: { name: 'connectionRatio', args: { ratio: 0.17 } },
 //     },
-//     target: { x: 468, y: 260 },
+//     target: { x: 1316, y: 947 },
+//     vertices:[{x:1196,y:844},{x:1246,y:900}],
 //     attrs: {
 //         line: {
-//             organicStrokeSize: 30,
+//             organicStrokeSize: 20,
 //         },
 //     },
 //     labels: [
 //         {
 //             attrs: {
 //                 labelText: {
-//                     text: 'PCIRC',
+//                     text: 'PLAD',
 //                 },
 //             },
 //             position: {
@@ -2775,23 +2856,26 @@ const rgLink = new Branch({
 //         },
 //     ],
 // });
-// const riLink = new Branch({
+// const rcLink = new Branch({
 //     source: {
-//         id: rhLink.id,
-//         anchor: { name: 'connectionRatio', args: { ratio: 1 } },
+//         id: raLink.id,
+//         anchor: { name: 'connectionRatio', args: { ratio: 0.3 } },
 //     },
-//     target: { x: 684, y: 622 },
-//     vertices: [{ x: 525, y: 382 }, { x: 602, y: 468 }],
+//     target: { x: 1375, y: 1471 },
+//     vertices: [{ x: 1219, y: 973 },{ x: 1272, y: 1044 },{ x: 1319, y: 1118 },{ x: 1343, y: 1156 },{ x: 1355, y: 1215 }
+//         ,{ x: 1375, y: 1262 },{ x: 1372, y: 1292 },{ x: 1390, y: 1336 },{ x: 1381, y: 1380 },{ x: 1390, y: 1427 }
+//     ],
 //     attrs: {
 //         line: {
-//             organicStrokeSize: 30,
+//             organicStrokeSize: 15,
+//             organicStrokeThinning:0.8,
 //         },
 //     },
 //     labels: [
 //         {
 //             attrs: {
 //                 labelText: {
-//                     text: '1st OM',
+//                     text: 'D1',
 //                 },
 //             },
 //             position: {
@@ -2801,22 +2885,24 @@ const rgLink = new Branch({
 //         },
 //     ],
 // });
-// const rjLink = new Branch({
+// const rdLink = new Branch({
 //     source: {
-//         id: rhLink.id,
-//         anchor: { name: 'connectionRatio', args: { ratio: 1 } },
+//         id: raLink.id,
+//         anchor: { name: 'connectionRatio', args: { ratio: 0.54 } },
 //     },
-//     target: { x: 407, y: 382 },
+//     target: { x: 1272, y: 1507 },
+//     vertices:[{x:1243,y:1256},{x:1258,y:1348},{x:1278,y:1392},{x:1287,y:1445}],
 //     attrs: {
 //         line: {
-//             organicStrokeSize: 30,
+//             organicStrokeSize: 15,
+//             organicStrokeThinning:0.8
 //         },
 //     },
 //     labels: [
 //         {
 //             attrs: {
 //                 labelText: {
-//                     text: 'mCIRC',
+//                     text: 'MLAD',
 //                 },
 //             },
 //             position: {
@@ -2826,23 +2912,24 @@ const rgLink = new Branch({
 //         },
 //     ],
 // });
-// const rkLink = new Branch({
+// const reLink = new Branch({
 //     source: {
-//         id: rjLink.id,
-//         anchor: { name: 'connectionRatio', args: { ratio: 1 } },
+//         id: raLink.id,
+//         anchor: { name: 'connectionRatio', args: { ratio: 0.29 } },
 //     },
-//     target: { x: 584, y: 677 },
-//     vertices: [{ x: 464, y: 502 }, { x: 532, y: 581 }],
+//     target: { x: 1069, y: 1203 },
+//     vertices:[{x:1110,y:1021},{x:1113,y:1082},{x:1084,y:1109},{x:1098,y:1144},{x:1075,y:1168}],
 //     attrs: {
 //         line: {
-//             organicStrokeSize: 30,
+//             organicStrokeSize: 15,
+//             organicStrokeThinning:0.8
 //         },
 //     },
 //     labels: [
 //         {
 //             attrs: {
 //                 labelText: {
-//                     text: '2nd OM',
+//                     text: 'D2',
 //                 },
 //             },
 //             position: {
@@ -2852,22 +2939,24 @@ const rgLink = new Branch({
 //         },
 //     ],
 // });
-// const rlLink = new Branch({
+// const rfLink = new Branch({
 //     source: {
-//         id: rjLink.id,
-//         anchor: { name: 'connectionRatio', args: { ratio: 1 } },
+//         id: raLink.id,
+//         anchor: { name: 'connectionRatio', args: { ratio: 0.42 } },
 //     },
-//     target: { x: 287, y: 598 },
+//     target: { x: 1134, y: 1162 },
+//     vertices:[{x:1169,y:1112},{x:1160,y:1138}],
 //     attrs: {
 //         line: {
-//             organicStrokeSize: 30,
+//             organicStrokeSize: 8,
+//             organicStrokeThinning: 0.8, 
 //         },
 //     },
 //     labels: [
 //         {
 //             attrs: {
 //                 labelText: {
-//                     text: 'dCIRC',
+//                     text: 'DLAD',
 //                 },
 //             },
 //             position: {
@@ -2877,23 +2966,24 @@ const rgLink = new Branch({
 //         },
 //     ],
 // });
-// const rmLink = new Branch({
+// const rgLink = new Branch({
 //     source: {
-//         id: rlLink.id,
-//         anchor: { name: 'connectionRatio', args: { ratio: 0.5 } },
+//         id: raLink.id,
+//         anchor: { name: 'connectionRatio', args: { ratio: 0.55 } },
 //     },
-//     target: { x: 512, y: 738 },
-//     vertices: [{ x: 409, y: 627 }],
+//     target: { x: 1045, y: 1362 },
+//     vertices: [{ x: 1128, y: 1236 },{ x: 1110, y: 1277 },{ x: 1092, y: 1295 },{ x: 1092, y: 1321 },{ x: 1069, y: 1333 }],
 //     attrs: {
 //         line: {
-//             organicStrokeSize: 30,
+//             organicStrokeSize: 10,
+//             organicStrokeThinning:0.8,
 //         },
 //     },
 //     labels: [
 //         {
 //             attrs: {
 //                 labelText: {
-//                     text: '3rd OM',
+//                     text: 'Lat Ramus',
 //                 },
 //             },
 //             position: {
@@ -2903,41 +2993,27 @@ const rgLink = new Branch({
 //         },
 //     ],
 // });
-
+const region = new joint.shapes.custom.Region({
+    position: { x: 0, y: 0 },
+});
 graph.addCells([
+    region,
+    mpLink,
+    myLeftLink,
+    myRightLink,
+    myLink,
+    myLeftBLink,
+    myRightBLink
     // rootLink,
-     laLink,
-     lb0Link,
-     lbLink,
-     lcLink,
-     ldLink,
-     leLink,
-     raLink,
-     rbLink,
-     rcLink,
-     rdLink,
-     reLink,
-     rfLink,
-     rgLink,
-    // raLink,
-    // rbLink,
-    // rcLink,
-    // rdLink,
-    // reLink,
-    // rfLink,
-    // rfLink2,
-    // rgLink,
-    // rhLink,
-    // riLink,
-    // rjLink,
-    // rkLink,
-    // rlLink,
-    // rmLink
+    // outerLink,
+    // outerLink2,
+    // outerLink3,
+    // outerLink4
 ]);
 // Fit the content of the paper to the viewport.
 // ---------------------------------------------
 paper.transformToFitContent({
-    contentArea: { x: 0, y: 0, width: 2000, height: 2000 },
+    //contentArea: { x: 0, y: 0, width: 2000, height: 2000 },
     horizontalAlign: 'middle',
     verticalAlign: 'middle',
     //padding: 50,

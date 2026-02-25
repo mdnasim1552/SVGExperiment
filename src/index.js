@@ -1,5 +1,7 @@
 import { getStroke } from 'perfect-freehand';
 import * as joint from '@joint/core';
+import * as regionConstraints from './regionConstraints.js';
+import * as branchFactory from './branchFactory.js';
 const { TangentDirections } = joint.connectors.curve;
 const borderWidth = 4;
 const speciesSize = 100;
@@ -12,7 +14,64 @@ const colors = {
     highlight: '#f7a1a8',
 };
 joint.shapes.custom = {};
+joint.shapes.custom.Region = joint.dia.Element.define(
+    'custom.Region',
+    {
+        size: { width: 2000, height: 2000 },
+        attrs: {
+            // body: {
+            //     d: `
+            //         M 556 46 L 527 107 L 527 168 L 538 234 L 552 297 L 552 361 L 539 424 L 493 478 L 441 531 L 377 618 L 316 725 L 262 868 L 252 1036 L 285 1181 L 341 1303 L 448 1484 L 550 1622 L 657 1720 L 720 1792 L 805 1864 L 907 1907 L 965 1910 L 1065 1884 L 1187 1833 L 1267 1782 L 1350 1702 L 1430 1609 L 1493 1501 L 1535 1421 L 1567 1333 L 1575 1278 L 1585 1253 L 1635 1185 L 1671 1107 L 1689 1040 L 1691 975 L 1683 886 L 1645 787 L 1611 721 L 1564 652 L 1423 513 L 1332 443 L 1289 395 L 1245 318 l -19 -96 L 1224 137 L 1225 25 M 641 50 L 631 115 L 631 176 L 636 257 L 657 329 L 700 423 L 731 466 L 728 527 L 731 576 L 751 619 L 781 640 L 807 650 L 840 652 L 867 642 L 886 631 L 906 618 L 922 605 L 930 595 L 938 581 L 954 595 L 971 608 L 983 610 L 1000 605 L 1023 593 L 1042 573 L 1054 556 L 1061 542 L 1070 514 L 991 420 L 965 401 L 956 368 L 955 327 M 886 631 L 896 650 L 907 661 L 920 666 L 939 665 L 951 660 L 962 653 L 971 642 L 980 629 L 983 610 M 1070 514 L 1076 522 L 1116 489 L 1103 467 L 1098 434 L 1024 429 L 995 424
+            //     `,
+            //     fill: '#ffffff',
+            //     stroke: '#000000',
+            //     strokeWidth: 6,
+            //     pointerEvents: 'none'
 
+            // },
+            area1: {
+                d: 'M 556 46 L 527 107 L 527 168 L 538 234 L 552 297 L 552 361 L 539 424 L 493 478 L 441 531 L 377 618 L 316 725 L 262 868 L 252 1036 L 285 1181 L 341 1303 L 448 1484 L 550 1622 L 657 1720 L 720 1792 L 805 1864 L 907 1907 L 965 1910 L 1065 1884 L 1187 1833 L 1267 1782 L 1350 1702 L 1430 1609 L 1493 1501 L 1535 1421 L 1567 1333 L 1575 1278 L 1585 1253 L 1635 1185 L 1671 1107 L 1689 1040 L 1691 975 L 1683 886 L 1645 787 L 1611 721 L 1564 652 L 1423 513 L 1332 443 L 1289 395 L 1245 318 l -19 -96 L 1224 137 L 1225 25',
+                fill: '#ffffff',
+                stroke: '#000',
+                strokeWidth: 4,
+                pointerEvents: 'none'
+            },
+            area2: {
+                d: 'M 641 50 L 631 115 L 631 176 L 636 257 L 657 329 L 700 423 L 731 466 L 728 527 L 731 576 L 751 619 L 781 640 L 807 650 L 840 652 L 867 642 L 886 631 L 906 618 L 922 605 L 930 595 L 938 581 L 954 595 L 971 608 L 983 610 L 1000 605 L 1023 593 L 1042 573 L 1054 556 L 1061 542 L 1070 514 L 991 420 L 965 401 L 956 368 L 955 327',
+                fill: '#ffffff',
+                stroke: '#000',
+                strokeWidth: 4,
+                pointerEvents: 'none'
+            },
+            area3: {
+                d: 'M 886 631 L 896 650 L 907 661 L 920 666 L 939 665 L 951 660 L 962 653 L 971 642 L 980 629 L 983 610',
+                fill: '#ffffff',
+                stroke: '#000',
+                strokeWidth: 4,
+                pointerEvents: 'none'
+            },
+            area4: {
+                d: 'M 1070 514 L 1077 522 L 1116 489 L 1103 468 L 1098 434 L 1024 429 L 991 420 z',
+                fill: '#ED2E24',
+                stroke: '#000',
+                strokeWidth: 4,
+                pointerEvents: 'none'
+            }
+        }
+    },
+    {
+        markup: [
+            { tagName: 'path', selector: 'area1' },
+            { tagName: 'path', selector: 'area2' },
+            { tagName: 'path', selector: 'area3' },
+            { tagName: 'path', selector: 'area4' }
+        ]
+    }
+);
+const region = new joint.shapes.custom.Region({
+    position: { x: 0, y: 0 },
+});
+const regionBBox = region.getBBox();
 joint.shapes.custom.Worm = joint.dia.Element.define('custom.Worm', {
     size: { width: 60, height: 30 },
 
@@ -764,8 +823,38 @@ graph.on('change:position', cell => {
         to: { ...curr },
     });
 });
-
+// ---------------- 5️⃣ Convert Region areas to polygons ----------------
+const polygons = [
+    regionConstraints.parsePathToPoints(region.attr('area1/d')),
+    regionConstraints.parsePathToPoints(region.attr('area2/d')),
+    regionConstraints.parsePathToPoints(region.attr('area3/d')),
+    regionConstraints.parsePathToPoints(region.attr('area4/d')),
+].filter(p => p.length > 0); // ignore empty
 graph.on('change:vertices', link => {
+    const vertices = link.vertices();
+    if (!vertices) return;
+
+    const clamped = vertices.map(v => {
+        // If inside any polygon, keep it
+        for (let poly of polygons) {
+            if (regionConstraints.isPointInPolygon(v.x, v.y, poly)) return v;
+        }
+        // Outside → snap to nearest polygon edge
+        let nearest = null;
+        let minDist = Infinity;
+        for (let poly of polygons) {
+            const [nx, ny] = regionConstraints.snapPointToPolygon(v.x, v.y, poly);
+            const d = Math.hypot(v.x - nx, v.y - ny);
+            if (d < minDist) {
+                minDist = d;
+                nearest = [nx, ny];
+            }
+        }
+        return { x: nearest[0], y: nearest[1] };
+    });
+
+    link.set('vertices', clamped, { silent: true });
+
     if (isRestoring) return;
     const prev = link.previous('vertices') || [];
     const curr = link.get('vertices') || [];
@@ -1170,46 +1259,6 @@ function getNearestSegmentIndex(linkView, paper, evt, tolerance = 150) {
     }
     return segmentIndex;
 }
-// === Segment coloring ===
-// function colorSegment(linkView, segmentIndex, color) {
-//     const originalLink = linkView.model;
-//     const vertices = originalLink.vertices() || [];
-//     const points = [
-//         linkView.sourcePoint,
-//         ...vertices,
-//         linkView.targetPoint
-//     ];
-//     const start = points[segmentIndex];
-//     const end = points[segmentIndex + 1];
-//     const strokeWidth =
-//         originalLink.attr('line/organicStrokeSize') ||
-//         originalLink.attr('line/stroke-width') ||
-//         3;
-//     const overlay = new Branch({
-//         source: { x: start.x, y: start.y },
-//         target: { x: end.x, y: end.y },
-//         // // 🔴 VERY IMPORTANT
-//         // router: null,
-//         // connector: { name: 'curve' },
-//         // connectionPoint: null,
-//         attrs: {
-//             line: {
-//                 fill:color,
-//                 organicStrokeSize:originalLink.attr('line/organicStrokeSize')
-//                 // stroke: color,
-//                 // 'stroke-width': strokeWidth,
-//                 // 'stroke-linecap': 'butt',   // no rounding
-//                 // 'stroke-linejoin': 'miter',
-//                 //'pointer-events': 'none'   // no interaction padding
-//             }
-//         }
-//     });
-//     // overlay.set({
-//     //     z: originalLink.get('z') + 1,
-//     //     interactive: false   // no tools, no hover
-//     // });
-//     originalLink.graph.addCell(overlay);
-// }
 function splitLinkWithChildren(linkView, coloredSegmentIndex, color) {
     const graph = linkView.model.graph;
     const original = linkView.model;
@@ -2182,1001 +2231,7 @@ paper.on('link:pointerdblclick', (linkView, evt) => {
     if (Number.isNaN(labelIndex)) return;
     makeLabelEditable(linkView.model, labelIndex);
 });
-// Species
-// -------
-//const porifera = new Species({
-//    id: 'Porifera',
-//    position: { x: 696, y: 552 },
-//    attrs: {
-//        label: {
-//            text: 'Porifera',
-//        },
-//        icon: {
-//            xlinkHref: 'assets/porifera.svg',
-//        },
-//    },
-//});
-//const cnidaria = new Species({
-//    id: 'Cnidaria',
-//    position: { x: 264, y: 432 },
-//    attrs: {
-//        label: {
-//            text: 'Cnidaria',
-//        },
-//        icon: {
-//            xlinkHref: 'assets/cnidaria.svg',
-//        },
-//    },
-//});
-//const cnidaria2 = new Species({
-//    id: 'Cnidaria2',
-//    position: { x: 330, y: 396 },
-//    z: -1,
-//    angle: 15,
-//    attrs: {
-//        icon: {
-//            xlinkHref: 'assets/cnidaria2.svg',
-//        },
-//    },
-//});
-//const platyhelmintha = new Species({
-//    id: 'platyhelmintha',
-//    position: { x: 768, y: 400 },
-//    angle: -25,
-//    attrs: {
-//        label: {
-//            text: 'Platyhelmintha',
-//        },
-//        icon: {
-//            xlinkHref: 'assets/platyhelmintha.svg',
-//        },
-//    },
-//});
-//const brachiopoda = new Species({
-//    id: 'Brachiopoda',
-//    position: { x: 840, y: 248 },
-//    angle: -25,
-//    attrs: {
-//        label: {
-//            text: 'Brachiopoda',
-//        },
-//        icon: {
-//            xlinkHref: 'assets/brachiopoda.svg',
-//        },
-//    },
-//});
-//const annelida = new Species({
-//    id: 'Annelida',
-//    position: { x: 936, y: 112 },
-//    attrs: {
-//        label: {
-//            text: 'Annelida',
-//        },
-//        icon: {
-//            xlinkHref: 'assets/annelida.svg',
-//        },
-//    },
-//});
-//const mollusca = new Species({
-//    id: 'Mollusca',
-//    position: { x: 856, y: 8 },
-//    angle: -20,
-//    attrs: {
-//        label: {
-//            text: 'Mollusca',
-//        },
-//        icon: {
-//            xlinkHref: 'assets/mollusca.svg',
-//        },
-//    },
-//});
-//const tarigrada = new Species({
-//    id: 'Tarigrada',
-//    position: { x: 560, y: -136 },
-//    angle: 15,
-//    attrs: {
-//        label: {
-//            text: 'Tarigrada',
-//        },
-//        icon: {
-//            xlinkHref: 'assets/tarigrada.svg',
-//        },
-//    },
-//});
-//const arthropoda = new Species({
-//    id: 'Arthropoda',
-//    position: { x: 784, y: -105 },
-//    angle: -45,
-//    attrs: {
-//        label: {
-//            text: 'Arthropoda',
-//        },
-//        icon: {
-//            xlinkHref: 'assets/arthropoda.svg',
-//        },
-//    },
-//});
-//const nematoda = new Species({
-//    id: 'Nematoda',
-//    position: { x: 432, y: -56 },
-//    attrs: {
-//        label: {
-//            text: 'Nematoda',
-//        },
-//        icon: {
-//            xlinkHref: 'assets/nematoda.svg',
-//        },
-//    },
-//});
-//const echinodermata = new Species({
-//    id: 'Echinodermata',
-//    position: { x: 56, y: 128 },
-//    angle: 30,
-//    attrs: {
-//        label: {
-//            text: 'Echinodermata',
-//        },
-//        icon: {
-//            xlinkHref: 'assets/echinodermata.svg',
-//        },
-//    },
-//});
-//const chordata = new Species({
-//    id: 'Chordata',
-//    position: { x: 256, y: 8 },
-//    angle: 45,
-//    attrs: {
-//        label: {
-//            text: 'Chordata',
-//        },
-//        icon: {
-//            xlinkHref: 'assets/chordata.svg',
-//        },
-//    },
-//});
-//const chordata2 = new Species({
-//    id: 'Chordata2',
-//    position: { x: 290, y: -70 },
-//    z: -1,
-//    angle: 15,
-//    attrs: {
-//        icon: {
-//            xlinkHref: 'assets/chordata2.svg',
-//        },
-//    },
-//});
-//const chordata3 = new Species({
-//    id: 'Chordata3',
-//    position: { x: 206, y: -60 },
-//    z: -1,
-//    angle: -20,
-//    attrs: {
-//        icon: {
-//            xlinkHref: 'assets/chordata3.svg',
-//        },
-//    },
-//});
-//chordata.embed([chordata2, chordata3]);
-//cnidaria.embed([cnidaria2]);
-//graph.addCells([
-//    porifera,
-//    cnidaria,
-//    cnidaria2,
-//    platyhelmintha,
-//    brachiopoda,
-//    annelida,
-//    mollusca,
-//    tarigrada,
-//    arthropoda,
-//    nematoda,
-//    echinodermata,
-//    chordata,
-//    chordata2,
-//    chordata3,
-//]);
-// Branches
-// --------
-// const outerLink = new Branch({
-//     source: { x: 556, y: 46 },
-//     target: { x: 1225, y: 35 },
-//     vertices: [{ x: 527, y: 107 }, { x: 527, y: 168 }, 
-//         { x: 549, y: 274 },{ x: 552, y: 361 }, { x: 539, y: 424 },{ x: 495, y: 476 },{x:441,y:531}
-//         ,{x:377,y:618},{x:316,y:725},{x:262,y:868},{x:252,y:1036},{x:285,y:1181},{x:341,y:1303}
-//         ,{x:448,y:1484},{x:550,y:1622},{x:678,y:1741},
-//         {x:805,y:1864},{x:907,y:1907},{x:965,y:1910},
-//         {x:1065,y:1884},{x:1187,y:1833},{x:1317,y:1741},
-//         {x:1411,y:1634},{x:1503,y:1489},{x:1569,y:1346},
-//         {x:1579,y:1262},{x:1633,y:1189},{x:1681,y:1092},
-//         {x:1691,y:975},{x:1683,y:886},{x:1645,y:787},
-//         {x:1611,y:721},{x:1564,y:652},{x:1423,y:513},
-//         {x:1362,y:461},{x:1296,y:394},{x:1251,y:318},
-//         {x:1228,y:137}],
-//     attrs: {
-//         line: {
-//             fill: '#000000',
-//             stroke: '#000000',
-//             organicStrokeSize: 2,
-//             pointerEvents: 'none',
-//             //organicStrokeThinning:.8,
-//         },
-//     },
-//     //interactive: false   // 🔒 LOCKED
-// });
-// const outerLink2 = new Branch({
-//     source: { x: 641, y: 50 },
-//     target: { x: 955, y: 327 },
-//     vertices: [{ x: 631, y: 115 }, { x: 631, y: 176 }, 
-//         { x: 636, y: 257 },{ x: 657, y: 329 }, { x: 700, y: 423 },{ x: 731, y: 466 },{x:728,y:527}
-//         ,{x:731,y:576},{x:751,y:619},{x:797,y:645},{x:840,y:652},{x:886,y:632},{x:942,y:584}
-//         ,{x:980,y:609},{x:1024,y:594},{x:1049,y:568},
-//         {x:1068,y:508},{x:991,y:420},{x:965,y:401},
-//         {x:956,y:368}],
-//     attrs: {
-//         line: {
-//             fill: '#000000',
-//             stroke: '#000000',
-//             organicStrokeSize: 2,
-//             pointerEvents: 'none',
-//             //organicStrokeThinning:.8,
-//         },
-//     },
-//     //interactive: false   // 🔒 LOCKED
-// });
-// const outerLink3 = new Branch({
-//     source: { x: 886, y: 632 },
-//     target: { x: 980, y: 609 },
-//     vertices: [{ x: 924, y: 665 }, { x: 950, y: 660 }, 
-//         { x: 972, y: 641 }],
-//     attrs: {
-//         line: {
-//             fill: '#000000',
-//             stroke: '#000000',
-//             organicStrokeSize: 2,
-//             pointerEvents: 'none',
-//             //organicStrokeThinning:.8,
-//         },
-//     },
-//     //interactive: false   // 🔒 LOCKED
-// });
-// const outerLink4 = new Branch({
-//     source: { x: 1068, y: 508 },
-//     target: { x: 995, y: 424 },
-//     vertices: [{ x: 1116, y: 489 }, { x: 1103, y: 468 }, 
-//         { x: 1098, y: 434 },{ x: 1024, y: 429 }],
-//     attrs: {
-//         line: {
-//             fill: '#000000',
-//             stroke: '#000000',
-//             organicStrokeSize: 2,
-//             pointerEvents: 'none',
-//             //organicStrokeThinning:.8,
-//         },
-//     },
-//     //interactive: false   // 🔒 LOCKED
-// });
-joint.shapes.custom.Region = joint.dia.Element.define(
-    'custom.Region',
-    {
-        size: { width: 2000, height: 2000 },
-        attrs: {
-            // body: {
-            //     d: `
-            //         M 556 46 L 527 107 L 527 168 L 538 234 L 552 297 L 552 361 L 539 424 L 493 478 L 441 531 L 377 618 L 316 725 L 262 868 L 252 1036 L 285 1181 L 341 1303 L 448 1484 L 550 1622 L 657 1720 L 720 1792 L 805 1864 L 907 1907 L 965 1910 L 1065 1884 L 1187 1833 L 1267 1782 L 1350 1702 L 1430 1609 L 1493 1501 L 1535 1421 L 1567 1333 L 1575 1278 L 1585 1253 L 1635 1185 L 1671 1107 L 1689 1040 L 1691 975 L 1683 886 L 1645 787 L 1611 721 L 1564 652 L 1423 513 L 1332 443 L 1289 395 L 1245 318 l -19 -96 L 1224 137 L 1225 25 M 641 50 L 631 115 L 631 176 L 636 257 L 657 329 L 700 423 L 731 466 L 728 527 L 731 576 L 751 619 L 781 640 L 807 650 L 840 652 L 867 642 L 886 631 L 906 618 L 922 605 L 930 595 L 938 581 L 954 595 L 971 608 L 983 610 L 1000 605 L 1023 593 L 1042 573 L 1054 556 L 1061 542 L 1070 514 L 991 420 L 965 401 L 956 368 L 955 327 M 886 631 L 896 650 L 907 661 L 920 666 L 939 665 L 951 660 L 962 653 L 971 642 L 980 629 L 983 610 M 1070 514 L 1076 522 L 1116 489 L 1103 467 L 1098 434 L 1024 429 L 995 424
-            //     `,
-            //     fill: '#ffffff',
-            //     stroke: '#000000',
-            //     strokeWidth: 6,
-            //     pointerEvents: 'none'
-
-            // },
-            area1: {
-                d: 'M 556 46 L 527 107 L 527 168 L 538 234 L 552 297 L 552 361 L 539 424 L 493 478 L 441 531 L 377 618 L 316 725 L 262 868 L 252 1036 L 285 1181 L 341 1303 L 448 1484 L 550 1622 L 657 1720 L 720 1792 L 805 1864 L 907 1907 L 965 1910 L 1065 1884 L 1187 1833 L 1267 1782 L 1350 1702 L 1430 1609 L 1493 1501 L 1535 1421 L 1567 1333 L 1575 1278 L 1585 1253 L 1635 1185 L 1671 1107 L 1689 1040 L 1691 975 L 1683 886 L 1645 787 L 1611 721 L 1564 652 L 1423 513 L 1332 443 L 1289 395 L 1245 318 l -19 -96 L 1224 137 L 1225 25',
-                fill: '#ffffff',
-                stroke: '#000',
-                strokeWidth: 4,
-                pointerEvents: 'none'
-            },
-            area2: {
-                d: 'M 641 50 L 631 115 L 631 176 L 636 257 L 657 329 L 700 423 L 731 466 L 728 527 L 731 576 L 751 619 L 781 640 L 807 650 L 840 652 L 867 642 L 886 631 L 906 618 L 922 605 L 930 595 L 938 581 L 954 595 L 971 608 L 983 610 L 1000 605 L 1023 593 L 1042 573 L 1054 556 L 1061 542 L 1070 514 L 991 420 L 965 401 L 956 368 L 955 327',
-                fill: '#ffffff',
-                stroke: '#000',
-                strokeWidth: 4,
-                pointerEvents: 'none'
-            },
-            area3: {
-                d: 'M 886 631 L 896 650 L 907 661 L 920 666 L 939 665 L 951 660 L 962 653 L 971 642 L 980 629 L 983 610',
-                fill: '#ffffff',
-                stroke: '#000',
-                strokeWidth: 4,
-                pointerEvents: 'none'
-            },
-            area4: {
-                d: 'M 1070 514 L 1077 522 L 1116 489 L 1103 468 L 1098 434 L 1024 429 L 991 420 z',
-                fill: '#ED2E24',
-                stroke: '#000',
-                strokeWidth: 4,
-                pointerEvents: 'none'
-            }
-        }
-    },
-    {
-        markup: [
-            { tagName: 'path', selector: 'area1' },
-            { tagName: 'path', selector: 'area2' },
-            { tagName: 'path', selector: 'area3' },
-            { tagName: 'path', selector: 'area4' }
-        ]
-    }
-);
-// const laorigin = { x: 862, y: 804 };
-
-// const laLink = new Branch({
-//     source: laorigin,
-//     target: { x: 1128, y: 1530 },
-//     vertices: [{ x: 768, y: 891 }, { x: 707, y: 973 }, 
-//         { x: 681, y: 1058 },{ x: 620, y: 1226 }, { x: 601, y: 1304 },{ x: 599, y: 1383 },{x:632,y:1398}
-//         ,{x:693,y:1383},{x:794,y:1270},{x:840,y:1255},{x:896,y:1272},{x:937,y:1311},{x:987,y:1374}
-//         ,{x:1004,y:1433},{x:1069,y:1466},{x:1092,y:1507}],
-//     attrs: {
-//         line: {
-//             organicStrokeSize: 20,
-//             organicStrokeThinning:.8,
-//         },
-//     },
-//     labels: [
-//         {
-//             attrs: {
-//                 labelText: {
-//                     text: 'PRCA',
-//                 },
-//             },
-//             position: {
-//                 distance: 0.15,
-//                 angle: 10,
-//             },
-//         },
-//         {
-//             attrs: {
-//                 labelText: {
-//                     text: 'MRCA',
-//                 },
-//             },
-//             position: {
-//                 distance: 0.55,
-//                 angle: 10,
-//             },
-//         },
-//         {
-//             attrs: {
-//                 labelText: {
-//                     text: 'AMARG',
-//                 },
-//             },
-//             position: {
-//                 distance: 0.95,
-//                 angle: 10,
-//             },
-//         },
-//     ],
-// });
-// const lb0Link = new Branch({
-//     source: {
-//         id: laLink.id,
-//         anchor: { name: 'connectionRatio', args: { ratio: 0.03 } },
-//     },
-//     target: { x: 718, y: 838 },
-//     vertices: [{ x: 759, y: 794 }, { x: 733, y: 743 },{ x: 751, y: 720 },{ x: 821, y: 699 }
-//         ,{ x: 830, y: 661 },{ x: 792, y: 643 },{ x: 718, y: 643 }, { x: 668, y: 667 }, { x: 639, y: 735 }
-//         ,{ x: 665, y: 788 },{ x: 692, y: 829 },{ x: 718, y: 838 }
-//     ],
-//     attrs: {
-//         line: {
-//             organicStrokeSize: 10,
-//             organicStrokeThinning:.8,
-//         },
-//     },
-//     labels: [
-//         {
-//             attrs: {
-//                 labelText: {
-//                     text: 'DRCA',
-//                 },
-//             },
-//             position: {
-//                 distance: 0.45,
-//                 angle: 10,
-//             },
-//         },
-//     ],
-// });
-// const lbLink = new Branch({
-//     source: {
-//         id: laLink.id,
-//         anchor: { name: 'connectionRatio', args: { ratio: 0.1 } },
-//     },
-//     target: { x: 933, y: 982 },
-//     vertices: [{ x: 842, y: 944 }, { x: 892, y: 979 }],
-//     attrs: {
-//         line: {
-//             organicStrokeSize: 10,
-//             organicStrokeThinning:.8,
-//         },
-//     },
-//     labels: [
-//         {
-//             attrs: {
-//                 labelText: {
-//                     text: 'DRCA',
-//                 },
-//             },
-//             position: {
-//                 distance: 0.45,
-//                 angle: 10,
-//             },
-//         },
-//     ],
-// });
-// const lcLink = new Branch({
-//     source: {
-//         id: laLink.id,
-//         anchor: { name: 'connectionRatio', args: { ratio: 0.2 } },
-//     },
-//     target: { x: 951, y: 1236 },
-//     vertices: [{ x: 742, y: 1130 }, { x: 810, y: 1159 },{x:877,y:1180},{x:910,y:1212}],
-//     attrs: {
-//         line: {
-//             organicStrokeSize: 15,
-//             organicStrokeThinning:.8,
-//         },
-//     },
-//     labels: [
-//         {
-//             attrs: {
-//                 labelText: {
-//                     text: 'DRCA',
-//                 },
-//             },
-//             position: {
-//                 distance: 0.45,
-//                 angle: 10,
-//             },
-//         },
-//     ],
-// });
-// const ldLink = new Branch({
-//     source: {
-//         id: laLink.id,
-//         anchor: { name: 'connectionRatio', args: { ratio: 0.35 } },
-//     },
-//     target: { x: 1039, y: 1507 },
-//     vertices: [{ x: 712, y: 1306 }, { x: 765, y: 1368 },{x:874,y:1415},{x:957,y:1477}],
-//     attrs: {
-//         line: {
-//             organicStrokeSize: 15,
-//             organicStrokeThinning:.8,
-//         },
-//     },
-//     labels: [
-//         {
-//             attrs: {
-//                 labelText: {
-//                     text: 'DRCA',
-//                 },
-//             },
-//             position: {
-//                 distance: 0.45,
-//                 angle: 10,
-//             },
-//         },
-//     ],
-// });
-// const leLink = new Branch({
-//     source: {
-//         id: laLink.id,
-//         anchor: { name: 'connectionRatio', args: { ratio: 0.65 } },
-//     },
-//     target: { x: 904, y: 1121 },
-//     vertices: [{ x: 789, y: 1250 }, { x: 804, y: 1221 },{x:848,y:1191},{x:874,y:1144}],
-//     attrs: {
-//         line: {
-//             organicStrokeSize: 10,
-//             organicStrokeThinning:.8,
-//         },
-//     },
-//     labels: [
-//         {
-//             attrs: {
-//                 labelText: {
-//                     text: 'DRCA',
-//                 },
-//             },
-//             position: {
-//                 distance: 0.45,
-//                 angle: 10,
-//             },
-//         },
-//     ],
-// });
-// const raorigin = { x: 942, y: 738 };
-// const raLink = new Branch({
-//     source: raorigin,
-//     target: { x: 1051, y: 1480 },
-//     vertices: [{ x: 1019, y: 729 }, { x: 1081, y: 767 }, 
-//         { x: 1157, y: 962 },{ x: 1199, y: 1085 }, { x: 1207, y: 1197 },{ x: 1184, y: 1292 },{x:1202,y:1336}
-//         ,{x:1187,y:1442},{x:1156,y:1557},{x:1113,y:1579},{x:1084,y:1531},{x:1065,y:1511}],
-//     attrs: {
-//         line: {
-//             organicStrokeSize: 20,
-//             organicStrokeThinning:.8,
-//         },
-//     },
-//     labels: [
-//         {
-//             attrs: {
-//                 labelText: {
-//                     text: 'PLM',
-//                 },
-//             },
-//             position: {
-//                 distance: 0.45,
-//                 angle: 10,
-//             },
-//         },
-//     ],
-// });
-// const rbLink = new Branch({
-//     source: {
-//         id: raLink.id,
-//         anchor: { name: 'connectionRatio', args: { ratio: 0.17 } },
-//     },
-//     target: { x: 1316, y: 947 },
-//     vertices:[{x:1196,y:844},{x:1246,y:900}],
-//     attrs: {
-//         line: {
-//             organicStrokeSize: 20,
-//         },
-//     },
-//     labels: [
-//         {
-//             attrs: {
-//                 labelText: {
-//                     text: 'PLAD',
-//                 },
-//             },
-//             position: {
-//                 distance: 0.45,
-//                 angle: 10,
-//             },
-//         },
-//     ],
-// });
-// const rcLink = new Branch({
-//     source: {
-//         id: raLink.id,
-//         anchor: { name: 'connectionRatio', args: { ratio: 0.3 } },
-//     },
-//     target: { x: 1375, y: 1471 },
-//     vertices: [{ x: 1219, y: 973 },{ x: 1272, y: 1044 },{ x: 1319, y: 1118 },{ x: 1343, y: 1156 },{ x: 1355, y: 1215 }
-//         ,{ x: 1375, y: 1262 },{ x: 1372, y: 1292 },{ x: 1390, y: 1336 },{ x: 1381, y: 1380 },{ x: 1390, y: 1427 }
-//     ],
-//     attrs: {
-//         line: {
-//             organicStrokeSize: 15,
-//             organicStrokeThinning:0.8,
-//         },
-//     },
-//     labels: [
-//         {
-//             attrs: {
-//                 labelText: {
-//                     text: 'D1',
-//                 },
-//             },
-//             position: {
-//                 distance: 0.45,
-//                 angle: 10,
-//             },
-//         },
-//     ],
-// });
-// const rdLink = new Branch({
-//     source: {
-//         id: raLink.id,
-//         anchor: { name: 'connectionRatio', args: { ratio: 0.54 } },
-//     },
-//     target: { x: 1272, y: 1507 },
-//     vertices:[{x:1243,y:1256},{x:1258,y:1348},{x:1278,y:1392},{x:1287,y:1445}],
-//     attrs: {
-//         line: {
-//             organicStrokeSize: 15,
-//             organicStrokeThinning:0.8
-//         },
-//     },
-//     labels: [
-//         {
-//             attrs: {
-//                 labelText: {
-//                     text: 'MLAD',
-//                 },
-//             },
-//             position: {
-//                 distance: 0.45,
-//                 angle: 10,
-//             },
-//         },
-//     ],
-// });
-// const reLink = new Branch({
-//     source: {
-//         id: raLink.id,
-//         anchor: { name: 'connectionRatio', args: { ratio: 0.29 } },
-//     },
-//     target: { x: 1069, y: 1203 },
-//     vertices:[{x:1110,y:1021},{x:1113,y:1082},{x:1084,y:1109},{x:1098,y:1144},{x:1075,y:1168}],
-//     attrs: {
-//         line: {
-//             organicStrokeSize: 15,
-//             organicStrokeThinning:0.8
-//         },
-//     },
-//     labels: [
-//         {
-//             attrs: {
-//                 labelText: {
-//                     text: 'D2',
-//                 },
-//             },
-//             position: {
-//                 distance: 0.45,
-//                 angle: 10,
-//             },
-//         },
-//     ],
-// });
-// const rfLink = new Branch({
-//     source: {
-//         id: raLink.id,
-//         anchor: { name: 'connectionRatio', args: { ratio: 0.42 } },
-//     },
-//     target: { x: 1134, y: 1162 },
-//     vertices:[{x:1169,y:1112},{x:1160,y:1138}],
-//     attrs: {
-//         line: {
-//             organicStrokeSize: 8,
-//             organicStrokeThinning: 0.8, 
-//         },
-//     },
-//     labels: [
-//         {
-//             attrs: {
-//                 labelText: {
-//                     text: 'DLAD',
-//                 },
-//             },
-//             position: {
-//                 distance: 0.45,
-//                 angle: 10,
-//             },
-//         },
-//     ],
-// });
-// const rgLink = new Branch({
-//     source: {
-//         id: raLink.id,
-//         anchor: { name: 'connectionRatio', args: { ratio: 0.55 } },
-//     },
-//     target: { x: 1045, y: 1362 },
-//     vertices: [{ x: 1128, y: 1236 },{ x: 1110, y: 1277 },{ x: 1092, y: 1295 },{ x: 1092, y: 1321 },{ x: 1069, y: 1333 }],
-//     attrs: {
-//         line: {
-//             organicStrokeSize: 10,
-//             organicStrokeThinning:0.8,
-//         },
-//     },
-//     labels: [
-//         {
-//             attrs: {
-//                 labelText: {
-//                     text: 'Lat Ramus',
-//                 },
-//             },
-//             position: {
-//                 distance: 0.45,
-//                 angle: 10,
-//             },
-//         },
-//     ],
-// });
-
-const branchConfig = [
-  {
-    id: 'mpLink',
-    order: 99,
-    toFront: true,
-    source: { x: 1123, y: 582 },
-    target: { x: 1101, y: 449 },
-    vertices: [
-      { x: 1157, y: 543 }, { x: 1169, y: 491 },{ x: 1155, y: 457 }
-    ],
-    style: { fill: "#C07BAE",stroke: '#000000', strokeWidth:1, organicStrokeSize: 50, organicStrokeThinning: .5, organicStrokeTaper: 0, organicStrokeStartCap: false }
-  },
-  {
-    id: 'myLink',
-    order: 10,
-    parent: 'mpLink',
-    ratio: 0,
-    target: { x: 967, y: 1788 },
-    vertices: [
-      { x: 1078, y: 632 },{x:1014,y:761},{x:931,y:927},{ x: 864, y: 1066 }, { x: 797, y: 1203 },{ x: 782, y: 1323 },{x:782,y:1431}
-        ,{x:765,y:1501},{x:815,y:1770},{x:861,y:1896},{x:894,y:1925},{x:935,y:1876}
-    ],
-    style: { fill:"#EFE648", stroke: '#000000', strokeWidth:1, organicStrokeSize: 35, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'myLeftLink',
-    order: 3,
-    parent: 'mpLink',
-    ratio: 0,
-    target: { x: 818, y: 816 },
-    vertices: [
-      { x: 1058, y: 620 },{ x: 977, y: 693 }, { x: 907, y: 735 }
-    ],
-    style: { fill:"#EFE648", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 30, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'myLeftBLink',
-    order: 2,
-    parent: 'myLeftLink',
-    ratio: 0.45,
-    target: { x: 915, y: 832 },
-    vertices: [
-        { x: 965, y: 736 },{ x: 953, y: 776 }
-    ],
-    style: { fill:"#EFE648", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 20, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'myLeftCLink',
-    order: 3,
-    parent: 'myLink',
-    ratio: 0.18,
-    target: { x: 734, y: 959 },
-    vertices: [
-        { x: 939, y: 867 },{ x: 880, y: 882 }, { x: 803, y: 959 }
-    ],
-    style: { fill:"#EFE648", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 20, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'myLeftDLink',
-    order: 3,
-    parent: 'myLink',
-    ratio: 0.3,
-    target: { x: 693, y: 1165 },
-    vertices: [
-        { x: 836, y: 1042 },{ x: 767, y: 1114 }, { x: 716, y: 1128 }
-    ],
-    style: { fill:"#EFE648", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 20, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'myRightLink',
-    order: 3,
-    parent: 'mpLink',
-    ratio: 0,
-    target: { x: 1241, y: 1290 },
-    vertices: [
-        { x: 1144, y: 628 },{ x: 1152, y: 839 }, { x: 1144, y: 954 },{ x: 1162, y: 1042 },{ x: 1235, y: 1199 }
-    ],
-    style: { fill:"#EFE648", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 30, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'myRightBLink',
-    order: 2,
-    parent: 'myRightLink',
-    ratio: 0.4,
-    target: { x: 1283, y: 1103 },
-    vertices: [
-        { x: 1169, y: 890 },{ x: 1219, y: 1001 }, { x: 1236, y: 1057 }
-    ],
-    style: { fill:"#EFE648", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 20, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'myRightCLink',
-    order: 3,
-    parent: 'myLink',
-    ratio: 0.17,
-    target: { x: 1102, y: 1229 },
-    vertices: [
-        { x: 1002, y: 924 },{ x: 999, y: 1001 },{ x: 1036, y: 1058 },{ x: 1045, y: 1158 }
-    ],
-    style: { fill:"#EFE648", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 25, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'myRightDLink',
-    order: 2,
-    parent: 'myRightCLink',
-    ratio: 0.17,
-    target: { x: 1079, y: 1052 },
-    vertices: [
-        { x: 1036, y: 955 },{ x: 1079, y: 1015 }
-    ],
-    style: { fill:"#EFE648", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 20, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'myRightELink',
-    order: 3,
-    parent: 'myLink',
-    ratio: 0.32,
-    target: { x: 934, y: 1277 },
-    vertices: [
-        { x: 897, y: 1101 },{ x: 900, y: 1209 }
-    ],
-    style: { fill:"#EFE648", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 20, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'myRightFLink',
-    order: 2,
-    parent: 'myRightELink',
-    ratio: 0.37,
-    target: { x: 959, y: 1211 },
-    vertices: [
-        { x: 941, y: 1163 }
-    ],
-    style: { fill:"#EFE648", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 20, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'mB0Link',
-    order: 10,
-    source: { x: 1097, y: 506 },
-    target: { x: 1491, y: 1294 },
-    vertices: [
-      { x: 1124, y: 532 },{ x: 1212, y: 517 },{x:1331,y:510},{x:1443,y:576},{ x: 1541, y: 674 }, { x: 1611, y: 786 },{ x: 1654, y: 895 },{x:1657,y:1007},
-        {x:1632,y:1109},{x:1569,y:1214}
-    ],
-    style: { fill:"#3679BD", stroke: '#000000', strokeWidth:1, organicStrokeSize: 50, organicStrokeThinning:.3, organicStrokeTaper:0,organicStrokeStartCap: false }
-  },
-  {
-    id: 'mB0LinkChild01',
-    order: 3,
-    parent: 'mB0Link',
-    ratio: 0.15,
-    target: { x: 1297, y: 440 },
-    style: { fill:"#3679BD", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 25, organicStrokeThinning:0.8}
-  },
-  {
-    id: 'mB0LinkChild1',
-    order: 3,
-    parent: 'mB0Link',
-    ratio: 0.1,
-    target: { x: 1305, y: 1016 },
-    vertices: [
-        { x: 1273, y: 573 },{ x: 1289, y: 637 },{ x: 1273, y: 730 },{ x: 1261, y: 782 },{ x: 1273, y: 871 },{ x: 1305, y: 931 }
-    ],
-    style: { fill:"#6CBE47", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 20, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'mB0LinkChild2',
-    order: 2,
-    parent: 'mB0LinkChild1',
-    ratio: 0.4,
-    target: { x: 1362, y: 847 },
-    vertices: [
-        { x: 1305, y: 806 }
-    ],
-    style: { fill:"#6CBE47", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 20, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'mB0LinkChild3',
-    order: 3,
-    parent: 'mB0Link',
-    ratio: 0.2,
-    target: { x: 1382, y: 1012 },
-    vertices: [
-        { x: 1378, y: 597 },{ x: 1426, y: 677 },{ x: 1439, y: 758 },{ x: 1430, y: 851 },{ x: 1430, y: 935 }
-    ],
-    style: { fill:"#3679BD", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 25, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'mB0LinkChild4',
-    order: 2,
-    parent: 'mB0LinkChild3',
-    ratio: 0.5,
-    target: { x: 1515, y: 891 },
-    vertices: [
-        { x: 1463, y: 790 },{ x: 1479, y: 851 }
-    ],
-    style: { fill:"#3679BD", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 25, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'mB0LinkChild5',
-    order: 3,
-    parent: 'mB0Link',
-    ratio: 0.58,
-    target: { x: 1354, y: 1113 },
-    vertices: [
-        { x: 1620, y: 859 },{ x: 1576, y: 935 },{ x: 1527, y: 996 },{ x: 1475, y: 1012 },{ x: 1430, y: 1080 },{ x: 1394, y: 1113 }
-    ],
-    style: { fill:"#3679BD", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 25, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'mB0LinkChild6',
-    order: 2,
-    parent: 'mB0LinkChild5',
-    ratio: 0.5,
-    target: { x: 1471, y: 1101 },
-    vertices: [
-        { x: 1515, y: 1024 },{ x: 1503, y: 1072 }
-    ],
-    style: { fill:"#3679BD", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 25, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'mB0LinkChild7',
-    order: 3,
-    parent: 'mB0Link',
-    ratio: 0.74,
-    target: { x: 1334, y: 1246 },
-    vertices: [
-        { x: 1620, y: 1048 },{ x: 1531, y: 1137 },{ x: 1402, y: 1181 }
-    ],
-    style: { fill:"#3679BD", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 25, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-  {
-    id: 'mB0LinkChild8',
-    order: 2,
-    parent: 'mB0LinkChild7',
-    ratio: 0.4,
-    target: { x: 1503, y: 1205 },
-    vertices: [
-        { x: 1531, y: 1161 }
-    ],
-    style: { fill:"#3679BD", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 25, organicStrokeThinning:.3, organicStrokeTaper:1 }
-  },
-];
-//const sortedConfig = [...branchConfig].sort((a, b) => a.order - b.order);
-const createdLinks = {};
-const cells = [];
-
-branchConfig.forEach(cfg => {
-
-  // Build source
-  let source;
-
-  if (cfg.parent) {
-    source = {
-      id: createdLinks[cfg.parent].id,
-      anchor: {
-        name: 'connectionRatio',
-        args: { ratio: cfg.ratio ?? 0 }
-      }
-    };
-  } else {
-    source = cfg.source;
-  }
-const lineAttrs = {
-  ...(cfg.style?.fill !== undefined && { fill: cfg.style.fill }),
-  ...(cfg.style?.stroke !== undefined && { stroke: cfg.style.stroke }),
-  ...(cfg.style?.strokeWidth !== undefined && { strokeWidth: cfg.style.strokeWidth }),
-  ...(cfg.style?.organicStrokeSize !== undefined && { organicStrokeSize: cfg.style.organicStrokeSize }),
-  ...(cfg.style?.organicStrokeThinning !== undefined && { organicStrokeThinning: cfg.style.organicStrokeThinning }),
-  ...(cfg.style?.organicStrokeTaper !== undefined && { organicStrokeTaper: cfg.style.organicStrokeTaper }),
-  ...(cfg.style?.organicStrokeStartCap !== undefined && { organicStrokeStartCap: cfg.style.organicStrokeStartCap })
-};
-  const link = new Branch({
-    source,
-    target: cfg.target,
-    vertices: cfg.vertices || [],
-    ...(Object.keys(lineAttrs).length && {
-        attrs: { line: lineAttrs }
-    })
-  });
-if(cfg.order) {
-    //link.toFront();
-    link.set('z', cfg.order);
-}
-  createdLinks[cfg.id] = link;
-  cells.push(link);
-});
-const region = new joint.shapes.custom.Region({
-    position: { x: 0, y: 0 },
-});
+const cells=branchFactory.buildBranches(Branch);
 graph.addCells([region]);
 graph.addCells(cells);
 // graph.addCells([

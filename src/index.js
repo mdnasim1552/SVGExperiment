@@ -2,6 +2,8 @@ import { getStroke } from 'perfect-freehand';
 import * as joint from '@joint/core';
 import * as regionConstraints from './regionConstraints.js';
 import * as branchFactory from './branchFactory.js';
+import * as insertObjectInsideLink from './insertObjectInsideLink.js';
+import * as splitLinkAndInertObject from './splitLinkAndInertObject.js';
 const { TangentDirections } = joint.connectors.curve;
 const borderWidth = 4;
 const speciesSize = 100;
@@ -30,14 +32,14 @@ joint.shapes.custom.Region = joint.dia.Element.define(
 
             // },
             area1: {
-                d: 'M 556 46 L 527 107 L 527 168 L 538 234 L 552 297 L 552 361 L 539 424 L 493 478 L 441 531 L 377 618 L 316 725 L 262 868 L 252 1036 L 285 1181 L 341 1303 L 448 1484 L 550 1622 L 657 1720 L 720 1792 L 805 1864 L 907 1907 L 965 1910 L 1065 1884 L 1187 1833 L 1267 1782 L 1350 1702 L 1430 1609 L 1493 1501 L 1535 1421 L 1567 1333 L 1575 1278 L 1585 1253 L 1635 1185 L 1671 1107 L 1689 1040 L 1691 975 L 1683 886 L 1645 787 L 1611 721 L 1564 652 L 1423 513 L 1332 443 L 1289 395 L 1245 318 l -19 -96 L 1224 137 L 1225 25',
+                d: 'M 551 24 L 532 58 L 527 168 L 538 234 L 552 297 L 552 361 L 539 424 L 493 478 L 441 531 L 377 618 L 316 725 L 262 868 L 252 1036 L 285 1181 L 341 1303 L 448 1484 L 550 1622 L 657 1720 L 720 1792 L 805 1864 L 907 1907 L 965 1910 L 1065 1884 L 1187 1833 L 1267 1782 L 1350 1702 L 1430 1609 L 1493 1501 L 1535 1421 L 1567 1333 L 1575 1278 L 1585 1253 L 1635 1185 L 1671 1107 L 1689 1040 L 1691 975 L 1683 886 L 1645 787 L 1611 721 L 1564 652 L 1423 513 L 1332 443 L 1289 395 L 1245 318 l -19 -96 L 1224 137 L 1225 25',
                 fill: '#ffffff',
                 stroke: '#000',
                 strokeWidth: 4,
                 pointerEvents: 'none'
             },
             area2: {
-                d: 'M 641 50 L 631 115 L 631 176 L 636 257 L 657 329 L 700 423 L 731 466 L 728 527 L 731 576 L 751 619 L 781 640 L 807 650 L 840 652 L 867 642 L 886 631 L 906 618 L 922 605 L 930 595 L 938 581 L 954 595 L 971 608 L 983 610 L 1000 605 L 1023 593 L 1042 573 L 1054 556 L 1061 542 L 1070 514 L 991 420 L 965 401 L 956 368 L 955 327',
+                d: 'M 651 24 L 632 97 L 631 176 L 636 257 L 657 329 L 700 423 L 731 466 L 728 527 L 731 576 L 751 619 L 781 640 L 807 650 L 840 652 L 867 642 L 886 631 L 906 618 L 922 605 L 930 595 L 938 581 L 954 595 L 971 608 L 983 610 L 1000 605 L 1023 593 L 1042 573 L 1054 556 L 1061 542 L 1070 514 L 991 420 L 965 401 L 956 368 L 955 327',
                 fill: '#ffffff',
                 stroke: '#000',
                 strokeWidth: 4,
@@ -648,8 +650,11 @@ function restoreFromSnapshot(graph, snapshot, shapeNamespace) {
                     case 'standard.Ellipse':
                         cell = new joint.shapes.standard.Ellipse(data);
                         break;
+                    case 'custom.Region':
+                        cell = new joint.shapes.custom.Region(data);
+                        break;
                     default:
-                        console.warn(`Shape class "${data.type}" not found. Using joint.dia.Element as fallback.`);
+                        //console.warn(`Shape class "${data.type}" not found. Using joint.dia.Element as fallback.`);
                         cell = new (ElementClass || joint.dia.Element)(data);
                 }
             }else{
@@ -771,13 +776,13 @@ function redo() {
 }
 function RefreshElementAfterUndoAndRedo(element){
     if (element.get('type') === 'custom.Worm') {
-        updateWormShape(element);
+        insertObjectInsideLink.updateWormShape(element,graph,paper);
     } 
     else if(element.get('type') === 'custom.UpBottomStroke') {
-        updateUpBottomStrokeShape(element);
+        insertObjectInsideLink.updateUpBottomStrokeShape(element,graph,paper);
     }
     else {
-        updateRectanglePosition(element);
+        insertObjectInsideLink.updateRectanglePosition(element,graph,paper,joint,isRestoring);
     }
 }
 // --- Keyboard shortcuts ---
@@ -878,6 +883,26 @@ graph.on('change:labels', link => {
         const prev = prevLabels[i] || {};
         const curr = lbl || {};
 
+        if (curr.range) {
+
+            const { min, max } = curr.range;
+            const distance = curr.position?.distance ?? 0;
+
+            const clamped = Math.max(min, Math.min(max, distance));
+
+            if (clamped !== distance) {
+                link.label(i, {
+                    ...curr,
+                    position: {
+                        ...curr.position,
+                        distance: clamped
+                    }
+                }, { restricted: true });   // prevent recursion
+
+                return; // stop here — new change:labels will fire
+            }
+        }
+
         // Text change
         const prevText = prev.attrs?.labelText?.text || '';
         const currText = curr.attrs?.labelText?.text || '';
@@ -941,13 +966,13 @@ function RefreshElementsOfGraph(link){
         const attachment = el.get('linkAttachment');
         if (attachment && attachment.linkId === link.id) {
             if (el.get('type') === 'custom.Worm') {
-                updateWormShape(el);
+                insertObjectInsideLink.updateWormShape(el, graph, paper);
             } 
             else if (el.get('type') === 'custom.UpBottomStroke') {
-                updateUpBottomStrokeShape(el);
+                insertObjectInsideLink.updateUpBottomStrokeShape(el, graph, paper);
             }
             else {
-                updateRectanglePosition(el);
+                insertObjectInsideLink.updateRectanglePosition(el, graph, paper, joint, isRestoring);
             }
         }
     });
@@ -994,11 +1019,13 @@ document.addEventListener('contextmenu', function (e) {
 paper.on('element:contextmenu', function (elementView, evt) {
     evt.preventDefault();
     evt.stopPropagation();
+    const model = elementView.model;
     menuOpen = true;
     showElementMenu({
         x: evt.clientX,
         y: evt.clientY,
-        elementView
+        elementView,
+        isNote: model.get('isNote') === true
     });
     // const model = elementView.model;
 
@@ -1009,13 +1036,26 @@ paper.on('element:contextmenu', function (elementView, evt) {
     // }
 });
 const elementMenu = document.getElementById('element-menu');
-function showElementMenu({ x, y, elementView}) {
+function showElementMenu({ x, y, elementView, isNote }) {
     const model = elementView.model;
     elementMenu.style.display = 'none';
     const left = x; //- paperRect.left;
     const top = y; //- paperRect.top;
     elementMenu.style.left = left + 'px';
     elementMenu.style.top = top + 'px';
+
+    const deleteBtn = elementMenu.querySelector('[data-action="delete"]');
+    const addNoteBtn = elementMenu.querySelector('[data-action="add-note"]');
+
+    if (isNote) {
+        // 🔥 Only delete for notes
+        deleteBtn.style.display = 'block';
+        addNoteBtn.style.display = 'none';
+    } else {
+        deleteBtn.style.display = 'block';
+        addNoteBtn.style.display = 'block';
+    }
+
     elementMenu.style.display = 'block';
     elementMenu.onclick = e => {
         const action = e.target.dataset.action;
@@ -1158,7 +1198,8 @@ function addNoteToElement(element,x,y) {
             x: noteX, //x + element.size().width + 20,//40
             y: noteY+120 //1050
         },
-        size: { width: noteWidth, height: noteHeight } // ensures correct size
+        size: { width: noteWidth, height: noteHeight },
+        isNote: true,
     });
 
     graph.addCell(note);
@@ -1198,15 +1239,9 @@ paper.el.addEventListener('contextmenu', (evt) => {
         y: evt.clientY
     });
     const vertexIndex = getVertexIndexFromMouse(view, paper, evt);
+    const segmentIndex = getNearestSegmentIndex(view, paper, evt);
     //if (vertexIndex === -1) return; // Not a vertex
-    if (vertexIndex === -1) {
-        // 👉 Right-click on link body
-        // showLinkColorMenu({
-        //     x: evt.clientX,
-        //     y: evt.clientY,
-        //     linkView: view
-        // });
-        const segmentIndex = getNearestSegmentIndex(view, paper, evt);
+    if (vertexIndex === -1) {      
         if (segmentIndex !== -1) {
             showLinkColorMenu({
                 x: evt.clientX,
@@ -1216,7 +1251,6 @@ paper.el.addEventListener('contextmenu', (evt) => {
             });
         }
     } else {
-        const segmentIndex = getNearestSegmentIndex(view, paper, evt);
         if (segmentIndex !== -1) {
             showLinkColorMenu({
                 x: evt.clientX,
@@ -1258,83 +1292,6 @@ function getNearestSegmentIndex(linkView, paper, evt, tolerance = 150) {
         }
     }
     return segmentIndex;
-}
-function splitLinkWithChildren(linkView, coloredSegmentIndex, color) {
-    const graph = linkView.model.graph;
-    const original = linkView.model;
-    const vertices = original.vertices() || [];
-    const points = [
-        linkView.sourcePoint,
-        ...vertices,
-        linkView.targetPoint
-    ];
-    const source = original.get('source');
-    const target = original.get('target');
-    const router = original.get('router');
-    const connector = original.get('connector');
-    const baseLineAttrs = original.attr('line') || {};
-    const z = original.get('z') || 1;
-    const segments = [];
-    const segmentCount = points.length - 1;
-    // 1️⃣ create segments
-    for (let i = 0; i < segmentCount; i++) {
-        const link = new Branch({
-            source: i === 0
-                ? source
-                : { x: points[i].x, y: points[i].y },
-            target: i === segmentCount - 1
-                ? target
-                : { x: points[i + 1].x, y: points[i + 1].y },
-            router,
-            connector,
-            attrs: {
-                line: {
-                    ...baseLineAttrs,
-                    ...(i === coloredSegmentIndex ? { fill: color } : {}),
-                    ...(i === segmentCount - 1 && baseLineAttrs.organicStrokeThinning > 0
-                        ? { organicStrokeThinning: baseLineAttrs.organicStrokeThinning }
-                        : {organicStrokeThinning:0,organicStrokeSize:30})
-                }
-            }
-        });
-        link.set({ z });
-        segments.push(link);
-    }
-    // 2️⃣ find children of original link
-    const children = graph.getConnectedLinks(original, { outbound: true });
-    // 3️⃣ reattach children
-    children.forEach(child => {
-        const src = child.get('source');
-        if (!src.anchor || src.id !== original.id) return;
-        const r = src.anchor.args.ratio;
-        const segIndex = Math.min(
-            segmentCount - 1,
-            Math.floor(r * segmentCount)
-        );
-        const localRatio =
-            (r * segmentCount) - segIndex;
-        child.set('source', {
-            id: segments[segIndex].id,
-            anchor: {
-                name: 'connectionRatio',
-                args: { ratio: localRatio }
-            }
-        });
-    });
-    const labels = original.get('labels') || [];
-    labels.forEach(label => {
-        const d = label.position.distance;
-        const segIndex = Math.min(segmentCount - 1, Math.floor(d * segmentCount));
-        const localDistance = (d * segmentCount) - segIndex;
-        segments[segIndex].appendLabel({
-            attrs: label.attrs,
-            position: { distance: localDistance, angle: label.position.angle }
-        });
-    });
-    // 4️⃣ replace original
-    original.remove();
-    graph.addCells(segments);
-    return segments;
 }
 function getVertexIndexFromMouse(linkView, paper, evt, tolerance = 10) {
     const link = linkView.model;
@@ -1401,26 +1358,25 @@ function showLinkColorMenu({ x, y, linkView, segmentIndex }) {
         if (!linkView) return;
         if (color && !action){
             executeWithSnapshot(graph, () => {
-                splitLinkWithChildren(linkView, activeSegmentIndex, color);
+                splitLinkAndInertObject.splitLinkWithChildren(linkView, activeSegmentIndex, color, Branch);
             });
             colorMenu.style.display = 'none';
         }else{
             if (!action) return;
             if (action === 'hide-label') {
-                hideAllLinkLabels()
-                
+                hideAllLinkLabels();
             }else if(action === 'show-label') {
                 showAllLinkLabels();
             }else if(action==='add-rectangle'){
-                insertRectangleOnLink(link,x,y);
+                insertObjectInsideLink.insertRectangleOnLink(link,x,y,graph,paper,joint.shapes.standard.Rectangle,joint,isRestoring);
             }else if(action==='divide-segment'){                
                 executeWithSnapshot(graph, () => {
-                    splitLinkAtPointWithRectangle(linkView, x,y);
+                    splitLinkAndInertObject.splitLinkAtPointWithRectangle(linkView, x,y,paper,Branch,joint.shapes.standard.Rectangle);
                 });
-            }else if(action==='add-worm'){                
-                insertWormOnLink(link,x,y,e.target.dataset.color);
+            }else if(action==='add-worm'){ 
+                insertObjectInsideLink.insertWormOnLink(link,x,y,e.target.dataset.color,graph,paper,joint.shapes.custom.Worm);
             }else if(action==='add-up-bottom-stroke'){
-                insertUpBottomStroke(link,x,y);
+                insertObjectInsideLink.insertUpBottomStroke(link,x,y,graph,paper,joint.shapes.custom.UpBottomStroke);
             }
             
             colorMenu.style.display = 'none';
@@ -1449,346 +1405,6 @@ function executeWithSnapshot(graph, fn) {
     // }]);
     redoStack.length = 0;
 }
-function insertWormOnLink(link, x,y,color) {
-    graph.startBatch();
-    const linkView = paper.findViewByModel(link);
-    if (!linkView) return;
-
-    const localPoint = paper.clientToLocalPoint({
-        x: x,
-        y: y
-    });
-
-    const connection = linkView.getConnection();
-
-    const totalLength = connection.length();
-    const closestLength = connection.closestPointLength(localPoint);
-    // let ratio = closestLength / totalLength;
-    // ratio = Math.max(0, Math.min(1, ratio));
-    // ratio = Math.round(ratio * 1000) / 1000; // optional: 0.001 precision
-    let ratio = Math.max(0, Math.min(1, closestLength / totalLength));
-    const worm = new joint.shapes.custom.Worm();
-    worm.attr('body/fill', color);
-    worm.set('linkAttachment', {
-        linkId: link.id,
-        ratio
-    });
-
-    graph.addCell(worm);
-
-    updateWormShape(worm);
-    graph.stopBatch();
-    linkView.removeTools();
-}
-function updateWormShape(worm) {
-
-    const attachment = worm.get('linkAttachment');
-    if (!attachment) return;
-
-    const link = graph.getCell(attachment.linkId);
-    if (!link) return;
-
-    const linkView = paper.findViewByModel(link);
-    if (!linkView) return;
-
-    const connection = linkView.getConnection();
-    if (!connection) return;
-
-    // 🚀 CRITICAL FIX
-    worm.position(0, 0);
-    worm.rotate(0);
-
-    const ratio = attachment.ratio;
-    const segments = 6;
-    const baseHeight = 30;
-
-
-    const pixelLength =  60;
-    const totalLength = connection.length();
-    const wormLength = pixelLength / totalLength; // convert px to ratio
-    const step = wormLength / segments;
-    const safeRatio = Math.max(
-        wormLength,
-        Math.min(1 - wormLength, ratio)
-    );
-    
-    const thinning = link.attr('line/organicStrokeThinning') || 0;
-    let organicSize = (link.attr('line/organicStrokeSize') || baseHeight);
-    if(thinning!=0){
-        organicSize=organicSize+(organicSize+link.attr('line/strokeWidth'))/2;
-    }
-    const top = [];
-    const bottom = [];
-
-    for (let i = -segments; i <= segments; i++) {
-        let r = safeRatio + i * step;
-       // let r = ratio + i *step;// 0.01;
-        //r = Math.max(0, Math.min(1, r));
-        const p = connection.pointAt(r);
-        if (!p) continue;
-
-        const delta = step / 2;//0.002;
-        const before = connection.pointAt(Math.max(0, r - delta));
-        const after  = connection.pointAt(Math.min(1, r + delta));
-        if (!before || !after) continue;
-
-        const dx = after.x - before.x;
-        const dy = after.y - before.y;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        if (!len) continue;
-
-        const perpX = -dy / len;
-        const perpY = dx / len;
-        const height =organicSize * (1 - thinning * r);
-        top.push(`${p.x + perpX * height/2},${p.y + perpY * height/2}`);
-        bottom.unshift(`${p.x - perpX * height/2},${p.y - perpY * height/2}`);
-    }
-
-    const pathD = `M ${top.join(' L ')} L ${bottom.join(' L ')} Z`;
-
-    worm.attr('body/d', pathD);
-    //linkView.removeTools();
-}
-function insertUpBottomStroke(link, x,y) {
-    graph.startBatch();
-    const linkView = paper.findViewByModel(link);
-    if (!linkView) return;
-
-    const localPoint = paper.clientToLocalPoint({
-        x: x,
-        y: y
-    });
-
-    const connection = linkView.getConnection();
-
-    const totalLength = connection.length();
-    const closestLength = connection.closestPointLength(localPoint);
-    // let ratio = closestLength / totalLength;
-    // ratio = Math.max(0, Math.min(1, ratio));
-    // ratio = Math.round(ratio * 1000) / 1000; // optional: 0.001 precision
-    let ratio = Math.max(0, Math.min(1, closestLength / totalLength));
-    const upBottomStrokeShape = new joint.shapes.custom.UpBottomStroke();
-
-    upBottomStrokeShape.set('linkAttachment', {
-        linkId: link.id,
-        ratio
-    });
-
-    graph.addCell(upBottomStrokeShape);
-
-    updateUpBottomStrokeShape(upBottomStrokeShape);
-    graph.stopBatch();
-    linkView.removeTools();
-
-}
-function updateUpBottomStrokeShape(upBottomStrokeShape) {
-    const attachment = upBottomStrokeShape.get('linkAttachment');
-    if (!attachment) return;
-
-    const link = graph.getCell(attachment.linkId);
-    if (!link) return;
-
-    const linkView = paper.findViewByModel(link);
-    if (!linkView) return;
-
-    const connection = linkView.getConnection();
-    if (!connection) return;
-
-    upBottomStrokeShape.position(0, 0);
-    upBottomStrokeShape.rotate(0);
-
-    const ratio = attachment.ratio;
-    const segments = 6;
-    const baseHeight = 30;
-    const pixelLength = 60;
-    const totalLength = connection.length();
-    const upBottomStrokeShapeLength = pixelLength / totalLength;
-    const step = upBottomStrokeShapeLength / segments;
-    const safeRatio = Math.max(
-        upBottomStrokeShapeLength,
-        Math.min(1 - upBottomStrokeShapeLength, ratio)
-    );
-    const thinning = link.attr('line/organicStrokeThinning') || 0;
-    let organicSize = link.attr('line/organicStrokeSize') || baseHeight;
-    if (thinning != 0) {
-        organicSize = organicSize + (organicSize + (link.attr('line/strokeWidth') || 2)) / 2;
-    }
-
-    const topPoints = [];
-    const bottomPoints = [];
-
-    for (let i = -segments; i <= segments; i++) {
-        //let r = Math.max(0, Math.min(1, ratio + i * step));
-        let r = safeRatio + i * step;
-        const p = connection.pointAt(r);
-        if (!p) continue;
-
-        const delta = step / 2;//0.002;
-        const before = connection.pointAt(Math.max(0, r - delta));
-        const after = connection.pointAt(Math.min(1, r + delta));
-        if (!before || !after) continue;
-
-        const dx = after.x - before.x;
-        const dy = after.y - before.y;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        if (!len) continue;
-
-        const perpX = -dy / len;
-        const perpY = dx / len;
-        const height = organicSize * (1 - thinning * r);
-
-        topPoints.push(`${p.x + perpX * height/2},${p.y + perpY * height/2}`);
-        bottomPoints.unshift(`${p.x - perpX * height/2},${p.y - perpY * height/2}`);
-    }
-
-    if (!topPoints.length || !bottomPoints.length) return;
-
-    const fillD = `M ${topPoints.join(' L ')} L ${bottomPoints.join(' L ')} Z`;
-    const topD = `M ${topPoints.join(' L ')}`;
-    const bottomD = `M ${bottomPoints.join(' L ')}`;
-
-    upBottomStrokeShape.attr({
-        fillBody: { d: fillD },
-        topPath: { d: topD, stroke: 'yellow' },      // top stroke color
-        bottomPath: { d: bottomD, stroke: 'yellow' } // bottom stroke color
-    });
-
-    //linkView.removeTools();
-}
-
-function updateRectanglePosition(rect) {
-
-      const attachment = rect.get('linkAttachment');
-    if (!attachment) return;
-
-    const link = graph.getCell(attachment.linkId);
-    if (!link) return;
-
-    const linkView = paper.findViewByModel(link);
-    if (!linkView) return;
-
-    const connection = linkView.getConnection();
-    const totalLength = connection.length();
-    if (!totalLength) return;
-
-    // 🔹 Use let so ratio can be adjusted
-    let ratio = attachment.ratio;
-
-    // 🔹 Ensure no overlap with other rectangles on same link
-    const existingRects = graph.getElements().filter(el => {
-        const a = el.get('linkAttachment');
-        return a && a.linkId === link.id && el.id !== rect.id;
-    });
-
-    const minDistance = rect.size().width / totalLength; // minimum spacing along link
-
-    existingRects.forEach(el => {
-        const r = el.get('linkAttachment').ratio;
-        if (Math.abs(r - ratio) < minDistance) {
-            if (ratio < r) ratio = r - minDistance;
-            else ratio = r + minDistance;
-        }
-    });
-
-    ratio = Math.max(0, Math.min(1, ratio)); // clamp between 0 and 1
-
-    // 🔹 Store updated ratio
-    //rect.set('linkAttachment', { linkId: link.id, ratio });
-    if (!isRestoring) {
-        rect.set('linkAttachment', { linkId: link.id, ratio });
-    } else {
-        rect.attributes.linkAttachment = { linkId: link.id, ratio };
-    }
-
-    // 🔹 Get position along link
-    const point = connection.pointAt(ratio);
-    if (!point) return;
-
-    // compute tangent manually
-    const delta =  0.002;
-    const before = connection.pointAt(Math.max(0, ratio - delta));
-    const after  = connection.pointAt(Math.min(1, ratio + delta));
-    if (!before || !after) return;
-
-    const tangent = { x: after.x - before.x, y: after.y - before.y };
-    let angle = joint.g.toDeg(Math.atan2(tangent.y, tangent.x));
-    //if (angle > 90 || angle < -90) angle += 180;
-    // Smooth angle to prevent flipping
-    const prevAngle = rect.rotation || angle;
-    if (angle - prevAngle > 90) angle -= 180;
-    else if (angle - prevAngle < -90) angle += 180;
-
-    let curvature = 0;
-
-    if (before && after) {
-        const dx1 = point.x - before.x;
-        const dy1 = point.y - before.y;
-        const dx2 = after.x - point.x;
-        const dy2 = after.y - point.y;
-
-        const angle1 = Math.atan2(dy1, dx1);
-        const angle2 = Math.atan2(dy2, dx2);
-
-        curvature = Math.abs(angle2 - angle1);
-    }
-
-    // 🔥 Dynamic height based on curvature
-    const baseWidth = 60;
-    const baseHeight = 30;
-
-    const dynamicHeight = baseHeight - (curvature * totalLength * 0.1);//baseHeight - (curvature * 40);
-// const localLength = Math.sqrt((after.x - before.x)**2 + (after.y - before.y)**2);
-// const dynamicHeight = Math.max(12, Math.min(baseHeight, localLength*0.8, baseHeight - curvature*totalLength*0.1));
-
-    const finalHeight = Math.max(12, dynamicHeight);
-
-    rect.resize(baseWidth, finalHeight);
-
-    rect.position(
-        point.x - baseWidth / 2,
-        point.y - finalHeight / 2
-    );
-    rect.rotate(angle, true);
-}
-
-
-
-function insertRectangleOnLink(link,x,y) {
-    graph.startBatch();
-    const linkView = paper.findViewByModel(link);
-    if (!linkView) return;
-
-    const localPoint = paper.clientToLocalPoint({
-        x: x,
-        y: y
-    });
-
-    const connection = linkView.getConnection();
-
-    const totalLength = connection.length();
-    const closestLength = connection.closestPointLength(localPoint);
-    // let ratio = closestLength / totalLength;
-    // ratio = Math.max(0, Math.min(1, ratio));
-    // ratio = Math.round(ratio * 1000) / 1000; // optional: 0.001 precision
-    let ratio = Math.max(0, Math.min(1, closestLength / totalLength));
-    const rect = new joint.shapes.standard.Rectangle({
-        size: { width: 40, height: 30 }, // height will auto-adjust
-        attrs: {
-            body: { fill: '#4c4ed8', stroke: '#000000', strokeWidth: 2, rx: 10, ry: 10 },
-            //label: { text: 'Block', fill: '#000000' }
-        }
-    });
-
-    // store ratio on element
-    rect.set('linkAttachment', {
-        linkId: link.id,
-        ratio: ratio
-    });
-
-    graph.addCell(rect);
-    updateRectanglePosition(rect);
-    graph.stopBatch();
-}
 paper.on('element:pointermove', function(view, evt, x, y) {
     const element = view.model;
     const attachment = element.get('linkAttachment');
@@ -1811,12 +1427,12 @@ paper.on('element:pointermove', function(view, evt, x, y) {
         ratio: ratio
     });
     if (element.isElement() && element.get('type') === 'custom.Worm') {
-        updateWormShape(element);
+        insertObjectInsideLink.updateWormShape(element, graph, paper);
     } else if(element.isElement() && element.get('type') === 'custom.UpBottomStroke') {
-        updateUpBottomStrokeShape(element);
+        insertObjectInsideLink.updateUpBottomStrokeShape(element, graph, paper);
     }
     else {
-        updateRectanglePosition(element);
+        insertObjectInsideLink.updateRectanglePosition(element, graph, paper, joint, isRestoring);
     }
 });
 const dragStartPosition = new Map();
@@ -1847,170 +1463,6 @@ paper.on('element:pointerup', (view, evt) => {
         to: endRatio
     });
 });
-
-
-function splitLinkAtPointWithRectangle(linkView, x,y) {
-
-    const graph = linkView.model.graph;
-    const original = linkView.model;
-
-    const localPoint = paper.clientToLocalPoint(x, y);
-    const connection = linkView.getConnection();
-    if (!connection) return;
-
-    const totalLength = connection.length();
-    if (!totalLength) return;
-
-    const lengthAtPoint = connection.closestPointLength(localPoint);
-    let ratio = lengthAtPoint / totalLength;
-
-    // prevent extreme edge split
-    ratio = Math.max(0.001, Math.min(0.999, ratio));
-
-    const splitPoint = connection.pointAtLength(lengthAtPoint);
-    if (!splitPoint) return;
-
-    const source = original.get('source');
-    const target = original.get('target');
-    const router = original.get('router');
-    const connector = original.get('connector');
-    const baseLineAttrs = original.attr('line') || {};
-    const z = original.get('z') || 1;
-
-    // 1️⃣ Create rectangle
-    const width = 60;
-    const height = 30;
-    
-    const rect = new joint.shapes.standard.Rectangle();
-
-    rect.resize(width, height);
-
-    rect.position(
-        localPoint.x - width / 2,
-        localPoint.y - height / 2
-    );
-    rect.attr({
-        body: { fill: '#4c4ed8', stroke: '#000000' }
-    });
-    graph.addCell(rect);
-
-    const vertices = original.get('vertices') || [];
-    const leftVertices = [];
-    const rightVertices = [];
-
-    vertices.forEach(v => {
-        const ptLength = connection.closestPointLength(v);
-        const ptRatio = ptLength / connection.length();
-
-        if (ptRatio <= ratio) {
-            leftVertices.push({ ...v });
-        } else {
-            rightVertices.push({ ...v });
-        }
-    });
-
-    // 2️⃣ Create new links
-    const leftLink = new Branch({
-        source,
-        target: { id: rect.id },
-        router,
-        connector,
-        attrs: { line: { ...baseLineAttrs } }
-    });
-    leftLink.set('vertices', leftVertices);
-    const rightLink = new Branch({
-        source: { id: rect.id },
-        target,
-        router,
-        connector,
-        attrs: { line: { ...baseLineAttrs } }
-    });
-    rightLink.set('vertices', rightVertices);
-
-    leftLink.set({ z });
-    rightLink.set({ z });
-
-    graph.addCells([leftLink, rightLink]);
-
-    // -----------------------------
-    // 🔁 Reattach CHILD LINKS
-    // -----------------------------
-    const children = graph.getConnectedLinks(original, { outbound: true });
-
-    children.forEach(child => {
-        const src = child.get('source');
-        if (!src.anchor || src.id !== original.id) return;
-
-        const r = src.anchor.args.ratio;
-
-        if (r <= ratio) {
-
-            const newRatio = r / ratio;
-
-            child.set('source', {
-                id: leftLink.id,
-                anchor: {
-                    name: 'connectionRatio',
-                    args: { ratio: newRatio }
-                }
-            });
-
-        } else {
-
-            const newRatio = (r - ratio) / (1 - ratio);
-
-            child.set('source', {
-                id: rightLink.id,
-                anchor: {
-                    name: 'connectionRatio',
-                    args: { ratio: newRatio }
-                }
-            });
-        }
-    });
-
-    // -----------------------------
-    // 🏷 Preserve LABELS
-    // -----------------------------
-    const labels = original.get('labels') || [];
-
-    labels.forEach(label => {
-
-        const d = label.position.distance;
-
-        if (d <= ratio) {
-
-            const newDistance = d / ratio;
-
-            leftLink.appendLabel({
-                attrs: label.attrs,
-                position: {
-                    distance: newDistance,
-                    angle: label.position.angle
-                }
-            });
-
-        } else {
-
-            const newDistance = (d - ratio) / (1 - ratio);
-
-            rightLink.appendLabel({
-                attrs: label.attrs,
-                position: {
-                    distance: newDistance,
-                    angle: label.position.angle
-                }
-            });
-        }
-    });
-
-    // finally remove original
-    original.remove();
-
-    return { rect, leftLink, rightLink };
-}
-
-
 function hideAllLinkLabels() {
     graph.getLinks().forEach(link => {
         const labels = link.labels();

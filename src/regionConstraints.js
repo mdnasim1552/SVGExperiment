@@ -39,12 +39,31 @@ export function snapPointToPolygon(px, py, polygon) {
 }
 
 // ---------------- 4️⃣ Helper: Parse SVG Path 'd' to points ----------------
+// export function parsePathToPoints(d) {
+//     if (!d) return [];
+//     const commands = d.match(/[ML][^ML]+/g); // only M/L
+//     if (!commands) return [];
+//     return commands.map(cmd => {
+//         const coords = cmd.slice(1).trim().split(/[\s,]+/);
+//         return [parseFloat(coords[0]), parseFloat(coords[1])];
+//     });
+// }
 export function parsePathToPoints(d) {
     if (!d) return [];
-    const commands = d.match(/[ML][^ML]+/g); // only M/L
-    if (!commands) return [];
-    return commands.map(cmd => {
-        const coords = cmd.slice(1).trim().split(/[\s,]+/);
-        return [parseFloat(coords[0]), parseFloat(coords[1])];
-    });
+
+    // Create temporary SVG path
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+
+    const length = path.getTotalLength();
+    const points = [];
+
+    const step = 10; // smaller = more accurate (5-15 recommended)
+
+    for (let i = 0; i <= length; i += step) {
+        const pt = path.getPointAtLength(i);
+        points.push([pt.x, pt.y]);
+    }
+
+    return points;
 }

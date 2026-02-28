@@ -632,37 +632,42 @@ function restoreFromSnapshot(graph, snapshot, shapeNamespace) {
     // 2️⃣ Recreate all elements and links
     snapshot.cells.forEach(data => {
         let cell;
-
-        if (data.type && data.type.includes('link')) {
-            // Link
-            cell = new joint.dia.Link(data);
-        } else {
             // Element: use correct class from shapeNamespace
-            const ElementClass = shapeNamespace[data.type];
-            if (!ElementClass) {
-                switch (data.type) {
-                    case 'standard.Rectangle':
-                        cell = new joint.shapes.standard.Rectangle(data);
-                        break;
-                    case 'standard.Circle':
-                        cell = new joint.shapes.standard.Circle(data);
-                        break;
-                    case 'standard.Ellipse':
-                        cell = new joint.shapes.standard.Ellipse(data);
-                        break;
-                    case 'custom.Region':
-                        cell = new joint.shapes.custom.Region(data);
-                        break;
-                    default:
-                        //console.warn(`Shape class "${data.type}" not found. Using joint.dia.Element as fallback.`);
-                        cell = new (ElementClass || joint.dia.Element)(data);
-                }
-            }else{
-                cell = new ElementClass(data);
+        const ElementClass = shapeNamespace[data.type];
+        if (!ElementClass) {
+            switch (data.type) {
+                case 'standard.Rectangle':
+                    cell = new joint.shapes.standard.Rectangle(data);
+                    break;
+                case 'standard.Circle':
+                    cell = new joint.shapes.standard.Circle(data);
+                    break;
+                case 'standard.Ellipse':
+                    cell = new joint.shapes.standard.Ellipse(data);
+                    break;
+                case 'custom.Region':
+                    cell = new joint.shapes.custom.Region(data);
+                    break;
+                case 'custom.Worm':
+                    cell=new joint.shapes.custom.Worm(data);
+                    break;
+                case 'custom.UpBottomStroke':
+                    cell=new joint.shapes.custom.UpBottomStroke(data);
+                    break;
+                case 'custom.FormNote':
+                    cell=new joint.shapes.custom.FormNote(data);
+                    break;
+                case 'standard.Link':
+                    cell=new joint.shapes.standard.Link(data);
+                    break;
+                default:
+                    //console.warn(`Shape class "${data.type}" not found. Using joint.dia.Element as fallback.`);
+                    //cell = new (ElementClass || joint.dia.Element)(data);
+                    return;
             }
-            
+        }else{
+            cell = new ElementClass(data);
         }
-
         graph.addCell(cell);
         cellsMap.set(data.id, cell);
     });
@@ -1683,9 +1688,12 @@ paper.on('link:pointerdblclick', (linkView, evt) => {
     if (Number.isNaN(labelIndex)) return;
     makeLabelEditable(linkView.model, labelIndex);
 });
-const cells=branchFactory.buildBranches(Branch);
+//const cells=branchFactory.buildBranches(Branch);
+const { cells, branchConfig } = branchFactory.buildBranches(Branch);
+
 graph.addCells([region]);
 graph.addCells(cells);
+// Recalculate child links safely
 // graph.addCells([
 //     region,
 //     mpLink,
@@ -1729,6 +1737,27 @@ function refreshPaper() {
         if (view) view.update();
     });
 }
+document.getElementById('saveBtn').addEventListener('click', () => {
+    const json = graph.toJSON();
+    localStorage.setItem('mySavedDiagram', JSON.stringify(json));
+    alert('Diagram saved successfully!');
+});
+document.getElementById('loadBtn').addEventListener('click', () => {
+    const savedJSON = localStorage.getItem('mySavedDiagram');
+    if (!savedJSON) {
+        alert('No saved diagram found.');
+        return;
+    }
+    try {
+        const snapshot = JSON.parse(savedJSON);
+        restoreFromSnapshot(graph, snapshot, shapeNamespace);
+        refreshPaper();
+        alert('Diagram loaded successfully!');
+    } catch (err) {
+        console.error(err);
+        alert('Failed to load diagram. Check console for errors.');
+    }
+});
 hideAllLinkLabels();
 setTimeout(() => {
     paper.unfreeze();

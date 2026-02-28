@@ -454,15 +454,16 @@ export function buildBranches(Branch){
             ...(cfg.labels && { labels: cfg.labels }),
             ...(Object.keys(lineAttrs).length && {
                 attrs: { line: lineAttrs }
-            })
+            }),
+            ...(cfg.order != null && { z: cfg.order }) // store z-index
         });
-        if(cfg.order) {
-            //link.toFront();
-            link.set('z', cfg.order);
-        }
+        // if(cfg.order) {
+        //     //link.toFront();
+        //     link.set('z', cfg.order);
+        // }
         createdLinks[cfg.id] = link;
         cells.push(link);
     });
-    return cells;
+    return { cells, branchConfig };
 }
 

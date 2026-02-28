@@ -60,7 +60,7 @@ export function buildBranches(Branch){
             vertices: [
                 { x: 965, y: 736 },{ x: 953, y: 776 }
             ],
-            style: { fill:"#EFE648", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 20, organicStrokeThinning:.3, organicStrokeTaper:1,organicStrokeStartCap:false }
+            style: { fill:"#EFE648", stroke: '#000000', strokeWidth:0, organicStrokeSize: 20, organicStrokeThinning:.3, organicStrokeTaper:1,organicStrokeStartCap:false }
         },
         {
             id: 'myLeftCLink',
@@ -86,7 +86,7 @@ export function buildBranches(Branch){
         },
         {
             id: 'myRightLink',
-            order: 3,
+            order: 4,
             parent: 'mpLink',
             ratio: 0,
             target: { x: 1241, y: 1290 },
@@ -108,7 +108,7 @@ export function buildBranches(Branch){
         },
         {
             id: 'myRightCLink',
-            order: 3,
+            order: 4,
             parent: 'myLink',
             ratio: 0.17,
             target: { x: 1102, y: 1229 },
@@ -130,7 +130,7 @@ export function buildBranches(Branch){
         },
         {
             id: 'myRightELink',
-            order: 3,
+            order: 4,
             parent: 'myLink',
             ratio: 0.32,
             target: { x: 934, y: 1277 },
@@ -159,7 +159,7 @@ export function buildBranches(Branch){
             { x: 1124, y: 532 },{ x: 1212, y: 517 },{x:1331,y:510},{x:1443,y:576},{ x: 1541, y: 674 }, { x: 1611, y: 786 },{ x: 1654, y: 895 },{x:1657,y:1007},
                 {x:1632,y:1109},{x:1569,y:1214}
             ],
-            style: { fill:"#3679BD", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 50, organicStrokeThinning:.3, organicStrokeTaper:0,organicStrokeStartCap: false }
+            style: { fill:"#3679BD", stroke: '#000000', strokeWidth:1, organicStrokeSize: 50, organicStrokeThinning: 0.1, organicStrokeTaper:0,organicStrokeStartCap: false }
         },
         {
             id: 'mB0LinkChild01',
@@ -171,7 +171,7 @@ export function buildBranches(Branch){
         },
         {
             id: 'mB0LinkChild1',
-            order: 3,
+            order: 5,
             parent: 'mB0Link',
             ratio: 0.1,
             target: { x: 1305, y: 1016 },
@@ -193,7 +193,7 @@ export function buildBranches(Branch){
         },
         {
             id: 'mB0LinkChild3',
-            order: 3,
+            order: 4,
             parent: 'mB0Link',
             ratio: 0.2,
             target: { x: 1382, y: 1012 },
@@ -215,7 +215,7 @@ export function buildBranches(Branch){
         },
         {
             id: 'mB0LinkChild5',
-            order: 3,
+            order: 4,
             parent: 'mB0Link',
             ratio: 0.58,
             target: { x: 1354, y: 1113 },
@@ -237,7 +237,7 @@ export function buildBranches(Branch){
         },
         {
             id: 'mB0LinkChild7',
-            order: 3,
+            order: 4,
             parent: 'mB0Link',
             ratio: 0.74,
             target: { x: 1334, y: 1246 },
@@ -374,7 +374,7 @@ export function buildBranches(Branch){
         },
         {
             id: 'mB2LinkChild4',
-            order: 3,
+            order: 5,
             parent: 'mB2Link',
             ratio: 0.28,
             target: { x: 1013, y: 1777 },
@@ -448,6 +448,7 @@ export function buildBranches(Branch){
         ...(cfg.style?.organicStrokeStartCap !== undefined && { organicStrokeStartCap: cfg.style.organicStrokeStartCap })
         };
         const link = new Branch({
+            id:cfg.id,
             source,
             target: cfg.target,
             vertices: cfg.vertices || [],
@@ -455,12 +456,12 @@ export function buildBranches(Branch){
             ...(Object.keys(lineAttrs).length && {
                 attrs: { line: lineAttrs }
             }),
-            ...(cfg.order != null && { z: cfg.order }) // store z-index
+            //...(cfg.order != null && { z: cfg.order }) // store z-index
         });
-        // if(cfg.order) {
-        //     //link.toFront();
-        //     link.set('z', cfg.order);
-        // }
+        if(cfg.order>=4) {
+            //link.toFront();
+            link.set('z', cfg.order);
+        }
         createdLinks[cfg.id] = link;
         cells.push(link);
     });

@@ -72,6 +72,7 @@ joint.shapes.custom.Region = joint.dia.Element.define(
 );
 const region = new joint.shapes.custom.Region({
     position: { x: 0, y: 0 },
+    z: -1,
 });
 const regionBBox = region.getBBox();
 joint.shapes.custom.Worm = joint.dia.Element.define('custom.Worm', {
@@ -626,7 +627,7 @@ function restoreFromSnapshot(graph, snapshot, shapeNamespace) {
     
     // 1️⃣ Clear current graph
     graph.clear();
-
+    const cells = [];
     const cellsMap = new Map(); // ID -> cell
 
     // 2️⃣ Recreate all elements and links
@@ -668,10 +669,14 @@ function restoreFromSnapshot(graph, snapshot, shapeNamespace) {
         }else{
             cell = new ElementClass(data);
         }
-        graph.addCell(cell);
+        // if (data.z != null) {
+        //     cell.set('z', data.z, { silent: true });
+        // }
+        //graph.addCell(cell);
+        cells.push(cell);
         cellsMap.set(data.id, cell);
     });
-
+    graph.addCells(cells);
     // 3️⃣ Restore vertices and labels
     graph.getLinks().forEach(link => {
         const data = snapshot.cells.find(c => c.id === link.id);
@@ -1693,6 +1698,12 @@ const { cells, branchConfig } = branchFactory.buildBranches(Branch);
 
 graph.addCells([region]);
 graph.addCells(cells);
+// const myLeftLinkModel = graph.getCell('myLeftBLink');
+
+// if (myLeftLinkModel) {
+//     // Set z index on the model
+//     myLeftLinkModel.set('z', 0); // higher number = on top
+// }
 // Recalculate child links safely
 // graph.addCells([
 //     region,

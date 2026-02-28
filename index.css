@@ -102,6 +102,9 @@ body {
 /* .joint-link path {
     filter: drop-shadow(2px 3px 4px rgba(0,0,0,0.4));
 } */
+ /* g[model-id="myLeftBLink"] path[joint-selector="line"]{
+    filter: drop-shadow(2px 3px 4px rgba(0,0,0,0.4));
+ } */
 #controls {
     position: fixed;
     top: 10px;

@@ -267,6 +267,23 @@ export function buildBranches(Branch){
                 { x: 466, y: 1083 },{ x: 503, y: 1198 },{ x: 646, y: 1338 },{ x: 830, y: 1455 },{ x: 846, y: 1522 },
                 { x: 852, y: 1619 },{ x: 873, y: 1694 }
             ],
+            labels: [
+                {
+                    range: { min: 0, max: 0.35 },
+                    attrs: { labelText: { text: 'PRCA' } },
+                    position: { distance: 0.15, angle: 10 }
+                },
+                {
+                    range: { min: 0.36, max: 0.65 },
+                    attrs: { labelText: { text: 'MRCA' } },
+                    position: { distance: 0.55, angle: 10 }
+                },
+                {
+                    range: { min: 0.66, max: 1 },
+                    attrs: { labelText: { text: 'AMARG' } },
+                    position: { distance: 0.85, angle: 10 }
+                }
+            ],
             style: { fill:"#36C6F3", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 35, organicStrokeThinning:0.6, organicStrokeTaper:1, organicStrokeStartCap: false }
         },
         {

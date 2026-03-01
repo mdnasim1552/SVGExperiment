@@ -50,8 +50,11 @@ export function updateUpBottomStrokeShape(upBottomStrokeShape,graph,paper) {
     const segments = 6;
     const baseHeight = 30;
     const pixelLength = 60;
+    const widthPercent = attachment.widthPercent || 10; // fallback
+
     const totalLength = connection.length();
-    const upBottomStrokeShapeLength = pixelLength / totalLength;
+    //const upBottomStrokeShapeLength = pixelLength / totalLength;
+    const upBottomStrokeShapeLength = (widthPercent / 100) / 2;
     const step = upBottomStrokeShapeLength / segments;
     const safeRatio = Math.max(
         upBottomStrokeShapeLength,

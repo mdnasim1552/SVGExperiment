@@ -252,6 +252,7 @@ export function updateRectanglePosition(rect, graph, paper, joint, isRestoring) 
     if (!linkView) return;
 
     const connection = linkView.getConnection();
+    if (!connection || typeof connection.length !== 'function' || connection.length() === 0) return;
     const totalLength = connection.length();
     if (!totalLength) return;
 

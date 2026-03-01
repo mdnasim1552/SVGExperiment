@@ -42,7 +42,7 @@ export function buildBranches(Branch){
         },
         {
             id: 'myLeftLink',
-            order: 3,
+            order: 4,
             parent: 'mpLink',
             ratio: 0,
             target: { x: 818, y: 816 },
@@ -60,7 +60,7 @@ export function buildBranches(Branch){
             vertices: [
                 { x: 965, y: 736 },{ x: 953, y: 776 }
             ],
-            style: { fill:"#EFE648", stroke: '#000000', strokeWidth:0, organicStrokeSize: 20, organicStrokeThinning:.3, organicStrokeTaper:1,organicStrokeStartCap:false }
+            style: { fill:"#EFE648", stroke: '#000000', strokeWidth:0.5, organicStrokeSize: 20, organicStrokeThinning:.3, organicStrokeTaper:1,organicStrokeStartCap:false }
         },
         {
             id: 'myLeftCLink',
@@ -456,12 +456,12 @@ export function buildBranches(Branch){
             ...(Object.keys(lineAttrs).length && {
                 attrs: { line: lineAttrs }
             }),
-            //...(cfg.order != null && { z: cfg.order }) // store z-index
+            ...(cfg.order != null && { z: cfg.order }) // store z-index
         });
-        if(cfg.order>=4) {
-            //link.toFront();
-            link.set('z', cfg.order);
-        }
+        // if(cfg.order>=4) {
+        //     //link.toFront();
+        //     link.set('z', cfg.order);
+        // }
         createdLinks[cfg.id] = link;
         cells.push(link);
     });

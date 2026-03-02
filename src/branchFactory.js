@@ -159,7 +159,7 @@ export function buildBranches(Branch){
             { x: 1124, y: 532 },{ x: 1212, y: 517 },{x:1331,y:510},{x:1443,y:576},{ x: 1541, y: 674 }, { x: 1611, y: 786 },{ x: 1654, y: 895 },{x:1657,y:1007},
                 {x:1632,y:1109},{x:1569,y:1214}
             ],
-            style: { fill:"#3679BD", stroke: '#000000', strokeWidth:1, organicStrokeSize: 50, organicStrokeThinning: 0.1, organicStrokeTaper:0,organicStrokeStartCap: false }
+            style: { fill:"#3679BD", stroke: '#000000', strokeWidth:1, organicStrokeSize: 50, organicStrokeThinning: 0, organicStrokeTaper:0,organicStrokeStartCap: false }
         },
         {
             id: 'mB0LinkChild01',
@@ -484,4 +484,3 @@ export function buildBranches(Branch){
     });
     return { cells, branchConfig };
 }
-

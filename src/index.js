@@ -5,6 +5,7 @@ import * as branchFactory from './branchFactory.js';
 import * as insertObjectInsideLink from './insertObjectInsideLink.js';
 import * as splitLinkAndInertObject from './splitLinkAndInertObject.js';
 import * as restoreFromSnapshot from './restoreFromSnapshot.js';
+import * as addNoteToElement from './addNoteToElement.js';
 const { TangentDirections } = joint.connectors.curve;
 const borderWidth = 4;
 const speciesSize = 100;
@@ -191,7 +192,7 @@ joint.shapes.custom.FormNoteView = joint.dia.ElementView.extend({
     ">
         <div style="display:flex; flex-direction:column;">
             <label style="font-weight:bold;">Vessel:</label>
-            <input type="number" joint-selector="vesselInput" style="padding:8px; font-size:28px;"/>
+            <input type="number" min="1" max="100" joint-selector="vesselInput" style="padding:8px; font-size:28px;"/>
         </div>
     </div>
 `;
@@ -199,10 +200,18 @@ const input = container.querySelector('[joint-selector="vesselInput"]');
 
         // 🔥 Restore saved value
         input.value = this.model.get('vesselValue') || '';
-
+        const MAX = 100;
         // 🔥 Save to model when changed
         input.addEventListener('input', (e) => {
-            const value = Number(e.target.value) || 0;
+            let value = parseFloat(e.target.value);
+
+            // If value is above max, clamp it
+            if (!isNaN(value) && value > MAX) {
+                value = MAX;
+                e.target.value = value; // update input
+            }
+
+            // Update model
             this.model.set('vesselValue', value);
         });
         return this;
@@ -711,7 +720,10 @@ document.addEventListener('keydown', e => {
     // Undo
     if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
         e.preventDefault();
-        undo();
+        if(undoStack.length>2){
+            undo();
+        }
+        
     }
     // Redo
     if ((e.ctrlKey || e.metaKey) && ((key === 'y') || (e.shiftKey && key === 'z'))) {
@@ -736,7 +748,7 @@ graph.on('remove', cell => {
 
 graph.on('change:position', cell => {
     if (isRestoring || !cell.isElement()) return;
-    if (cell.get('linkAttachment')) return;
+    if (cell.get('linkAttachment') || cell.get('attachedTo')) return;
     const prev = cell.previous('position');
     const curr = cell.position();
     if (!prev || (prev.x === curr.x && prev.y === curr.y)) return;
@@ -978,7 +990,9 @@ function showElementMenu({ x, y, elementView, isNote }) {
 
     elementMenu.style.display = 'block';
     elementMenu.onclick = e => {
-        const action = e.target.dataset.action;
+        const item = e.target.closest('li');
+        if (!item || !elementMenu.contains(item)) return;
+        const action = item.dataset.action;
         if (!action) return;
         if (action === 'delete') {
             if (confirm('Do you want to delete this?')) {
@@ -991,174 +1005,43 @@ function showElementMenu({ x, y, elementView, isNote }) {
                     const linkCell = graph.getCell(n.linkId);
                     if (linkCell) linkCell.remove();
                 });
+                if (model.get('attachedTo')) {
+                    const parent = graph.getCell(model.get('attachedTo'));
+                    if (parent) {
+                        parent.set('attachedNotes', []);
+                    }
+                }
                 model.remove();
             }
         }else if (action === 'add-note') {
-            addNoteToElement(model,x,y);
+            addNoteToElement.addNoteToElement(graph,paper,joint,model,x,y);
         }
         elementMenu.style.display = 'none';
         menuOpen = false;
     };
 }
-function getVisibleArea() {
-
-    const rect = paper.el.getBoundingClientRect();
-
-    // Convert browser pixels to graph coordinates
-    const topLeft = paper.clientToLocalPoint({
-        x: rect.left,
-        y: rect.top
-    });
-
-    const bottomRight = paper.clientToLocalPoint({
-        x: rect.right,
-        y: rect.bottom
-    });
-
-    return {
-        x: topLeft.x,
-        y: topLeft.y,
-        width: bottomRight.x - topLeft.x,
-        height: bottomRight.y - topLeft.y
-    };
-}
-function isOverlapping(rect1, rect2) {
-    return !(
-        rect1.x + rect1.width <= rect2.x ||
-        rect1.x >= rect2.x + rect2.width ||
-        rect1.y + rect1.height <= rect2.y ||
-        rect1.y >= rect2.y + rect2.height
-    );
-}
-function getExistingNoteRects() {
-    return graph.getElements()
-        .filter(el => el.get('type') === 'custom.FormNote')
-        .map(el => {
-            const b = el.getBBox();
-            return {
-                x: b.x,
-                y: b.y,
-                width: b.width,
-                height: b.height
-            };
-        });
-}
-function addNoteToElement(element,x,y) {
-    const existingNotes = element.get('attachedNotes') || [];
-    if (existingNotes.length > 0) {
-        console.warn('Element already has a note. Skipping.');
-        return; // stop here
-    }
-    const bbox = element.getBBox();
-    const visibleArea = getVisibleArea();
-
-    const noteWidth = 350;
-    const noteHeight = 150;
-    const margin = 20;
-
-    // Available spaces
-    const spaces = {
-        top: y - visibleArea.y,
-        right: (visibleArea.x + visibleArea.width) - (x + bbox.width),
-        bottom: (visibleArea.y + visibleArea.height) - (y + bbox.height),
-        left: x - visibleArea.x
-    };
-
-    // Pick direction with MAX space
-    const direction = Object.keys(spaces).reduce((a, b) =>
-        spaces[a] > spaces[b] ? a : b
-    );
-
-    let noteX, noteY;
-
-    switch (direction) {
-
-        case 'top':
-            noteX = x + bbox.width / 2 - noteWidth / 2;
-            noteY = y - noteHeight - margin;
-            break;
-
-        case 'right':
-            noteX = x + bbox.width + margin;
-            noteY = y + bbox.height / 2 - noteHeight / 2;
-            break;
-
-        case 'bottom':
-            noteX = x + bbox.width / 2 - noteWidth / 2;
-            noteY = y + bbox.height + margin;
-            break;
-
-        case 'left':
-            noteX = x - noteWidth - margin;
-            noteY = y + bbox.height / 2 - noteHeight / 2;
-            break;
-    }
-
-    // ---- Clamp inside visible area ----
-    noteX = Math.max(visibleArea.x,
-        Math.min(noteX, visibleArea.x + visibleArea.width - noteWidth));
-
-    noteY = Math.max(visibleArea.y,
-        Math.min(noteY, visibleArea.y + visibleArea.height - noteHeight));
-    if(spaces.right>spaces.left){
-        noteX = noteX-700;
-    }else if(spaces.right<spaces.left){
-        noteX = noteX+700;
-    }
-    let newRect = {
-        x: noteX,
-        y: noteY,
-        width: noteWidth,
-        height: noteHeight
-    };
-    const existingRects = getExistingNoteRects();
-    while (
-        existingRects.some(r => isOverlapping(newRect, r))
-    ) {
-        newRect.y += 1; // shift downward
-    }
-    noteY = newRect.y;
-    const note = new joint.shapes.custom.FormNote({
-       position: {
-            x: noteX, //x + element.size().width + 20,//40
-            y: noteY+120 //1050
-        },
-        size: { width: noteWidth, height: noteHeight },
-        isNote: true,
-    });
-    note.set('attachedTo', element.id);
-    graph.addCell(note);
-
-    const link = new joint.shapes.standard.Link({
-        source: { id: element.id },
-        target: { id: note.id },
-        connector: { name: 'smooth' },
-        attrs: { line: { stroke: '#666', strokeWidth: 1, strokeDasharray: '4 2' } },
-        customNoContext: true
-    });
-
-    graph.addCell(link);
-     // 🌟 Save reference on element so we can delete later
-    const notes = element.get('attachedNotes') || [];
-    notes.push({ noteId: note.id, linkId: link.id });
-    element.set('attachedNotes', notes);
-}
 graph.on('change:vesselValue', function(note, value) {
-    const strokeId = note.get('attachedTo');
-    if (!strokeId) return;
+    const elementId = note.get('attachedTo');
+    if (!elementId) return;
 
-    const stroke = graph.getCell(strokeId);
-    if (!stroke) return;
+    const element = graph.getCell(elementId);
+    if (!element) return;
 
-    const attachment = stroke.get('linkAttachment');
+    const attachment = element.get('linkAttachment');
     if (!attachment) return;
 
-    stroke.set('linkAttachment', {
+    element.set('linkAttachment', {
         ...attachment,
         widthPercent: value
     });
-
-    insertObjectInsideLink.updateUpBottomStrokeShape(stroke, graph, paper);
+    if (element.isElement() && element.get('type') === 'custom.Worm') {
+        insertObjectInsideLink.updateWormShape(element, graph, paper);
+    } else if(element.isElement() && element.get('type') === 'custom.UpBottomStroke') {
+        insertObjectInsideLink.updateUpBottomStrokeShape(element, graph, paper);
+    }
+    else {
+        insertObjectInsideLink.updateRectanglePosition(element, graph, paper, joint, isRestoring);
+    }
 });
 paper.el.addEventListener('contextmenu', (evt) => {
     // Stop browser menu immediately
@@ -1292,9 +1175,13 @@ function showLinkColorMenu({ x, y, linkView, segmentIndex }) {
     activeSegmentIndex = segmentIndex;
     colorMenu.onclick = e => {
         if (!activeLinkId) return;
+
+        const item = e.target.closest('li');
+        if (!item || !colorMenu.contains(item)) return;
+
         const link = graph.getCell(activeLinkId);
-        const color = e.target.dataset.color;
-        const action = e.target.dataset.action;
+        const color = item.dataset.color;
+        const action = item.dataset.action;
         if (!link) return;
         const linkView = paper.findViewByModel(link);
         if (!linkView) return;
@@ -1316,9 +1203,9 @@ function showLinkColorMenu({ x, y, linkView, segmentIndex }) {
                     splitLinkAndInertObject.splitLinkAtPointWithRectangle(linkView, x,y,paper,Branch,joint.shapes.standard.Rectangle);
                 });
             }else if(action==='add-worm'){ 
-                insertObjectInsideLink.insertWormOnLink(link,x,y,e.target.dataset.color,graph,paper,joint.shapes.custom.Worm);
+                insertObjectInsideLink.insertWormOnLink(link,x,y,color,graph,paper,joint);
             }else if(action==='add-up-bottom-stroke'){
-                insertObjectInsideLink.insertUpBottomStroke(link,x,y,graph,paper,joint.shapes.custom.UpBottomStroke);
+                insertObjectInsideLink.insertUpBottomStroke(link,x,y,graph,paper,joint);
             }
             
             colorMenu.style.display = 'none';
@@ -1367,7 +1254,7 @@ paper.on('element:pointermove', function(view, evt, x, y) {
     element.set('linkAttachment', {
         linkId: attachment.linkId,
         ratio: ratio,
-        widthPercent: attachment.widthPercent
+        widthPercent: attachment.widthPercent || 10,
     });
     if (element.isElement() && element.get('type') === 'custom.Worm') {
         insertObjectInsideLink.updateWormShape(element, graph, paper);
@@ -1708,6 +1595,14 @@ document.getElementById('loadBtn').addEventListener('click', () => {
         console.error(err);
         alert('Failed to load diagram. Check console for errors.');
     }
+});
+document.getElementById('undoBtn').addEventListener('click', () => {
+    if(undoStack.length>2){
+        undo();
+    }
+});
+document.getElementById('redoBtn').addEventListener('click', () => {
+    redo();
 });
 hideAllLinkLabels();
 setTimeout(() => {

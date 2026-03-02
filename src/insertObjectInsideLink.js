@@ -1,5 +1,7 @@
-export function insertUpBottomStroke(link, x,y,graph, paper,UpBottomStroke) {
+import * as addNoteToElement from './addNoteToElement.js';
+export function insertUpBottomStroke(link, x,y,graph, paper,joint) {
     graph.startBatch();
+
     const linkView = paper.findViewByModel(link);
     if (!linkView) return;
 
@@ -16,15 +18,16 @@ export function insertUpBottomStroke(link, x,y,graph, paper,UpBottomStroke) {
     // ratio = Math.max(0, Math.min(1, ratio));
     // ratio = Math.round(ratio * 1000) / 1000; // optional: 0.001 precision
     let ratio = Math.max(0, Math.min(1, closestLength / totalLength));
-    const upBottomStrokeShape = new UpBottomStroke();
+    const upBottomStrokeShape = new joint.shapes.custom.UpBottomStroke();
 
     upBottomStrokeShape.set('linkAttachment', {
         linkId: link.id,
-        ratio
+        ratio,
+        widthPercent:10 // default to 10% of link length, can be adjusted
     });
 
     graph.addCell(upBottomStrokeShape);
-
+    addNoteToElement.addNoteToElement(graph,paper,joint,upBottomStrokeShape,x,y);
     updateUpBottomStrokeShape(upBottomStrokeShape, graph, paper);
     graph.stopBatch();
     linkView.removeTools();
@@ -98,16 +101,16 @@ export function updateUpBottomStrokeShape(upBottomStrokeShape,graph,paper) {
     const fillD = `M ${topPoints.join(' L ')} L ${bottomPoints.join(' L ')} Z`;
     const topD = `M ${topPoints.join(' L ')}`;
     const bottomD = `M ${bottomPoints.join(' L ')}`;
-
+    const color = link.attr('line/fill');
     upBottomStrokeShape.attr({
-        fillBody: { d: fillD },
+        fillBody: { d: fillD,fill:color, stroke: color }, // fill color matches link
         topPath: { d: topD, stroke: 'yellow' },      // top stroke color
         bottomPath: { d: bottomD, stroke: 'yellow' } // bottom stroke color
     });
 
     //linkView.removeTools();
 }
-export function insertWormOnLink(link, x,y,color,graph, paper,Worm) {
+export function insertWormOnLink(link, x,y,color,graph, paper,joint) {
     graph.startBatch();
     const linkView = paper.findViewByModel(link);
     if (!linkView) return;
@@ -125,15 +128,16 @@ export function insertWormOnLink(link, x,y,color,graph, paper,Worm) {
     // ratio = Math.max(0, Math.min(1, ratio));
     // ratio = Math.round(ratio * 1000) / 1000; // optional: 0.001 precision
     let ratio = Math.max(0, Math.min(1, closestLength / totalLength));
-    const worm = new Worm();
+    const worm = new joint.shapes.custom.Worm();
     worm.attr('body/fill', color);
     worm.set('linkAttachment', {
         linkId: link.id,
-        ratio
+        ratio,
+        widthPercent:10 // default to 10% of link length, can be adjusted
     });
 
     graph.addCell(worm);
-
+    addNoteToElement.addNoteToElement(graph,paper,joint,worm,x,y);
     updateWormShape(worm, graph, paper);
     graph.stopBatch();
     linkView.removeTools();
@@ -162,8 +166,10 @@ export function updateWormShape(worm,graph,paper) {
 
 
     const pixelLength =  60;
+    const widthPercent = attachment.widthPercent || 10;
     const totalLength = connection.length();
-    const wormLength = pixelLength / totalLength; // convert px to ratio
+    //const wormLength = pixelLength / totalLength; // convert px to ratio 
+    const wormLength = (widthPercent / 100) / 2;
     const step = wormLength / segments;
     const safeRatio = Math.max(
         wormLength,

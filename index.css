@@ -99,16 +99,16 @@ body {
     /* transform: scale(1.5); */
     transform-origin: center center; /* scale from center */
 }
-/* .joint-link path {
+.joint-link path {
     filter: drop-shadow(2px 3px 4px rgba(0,0,0,0.4));
-} */
+}
  /* g[model-id="myLeftBLink"] path[joint-selector="line"]{
     filter: drop-shadow(2px 3px 4px rgba(0,0,0,0.4));
  } */
 #controls {
     position: fixed;
     top: 10px;
-    left: 10px;
+    right: 10px;
     z-index: 1000;
     background: rgba(255,255,255,0.9);
     padding: 5px 10px;

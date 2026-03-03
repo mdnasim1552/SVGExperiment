@@ -6,6 +6,7 @@ import * as insertObjectInsideLink from './insertObjectInsideLink.js';
 import * as splitLinkAndInertObject from './splitLinkAndInertObject.js';
 import * as restoreFromSnapshot from './restoreFromSnapshot.js';
 import * as addNoteToElement from './addNoteToElement.js';
+import './styles.css';
 const { TangentDirections } = joint.connectors.curve;
 const borderWidth = 4;
 const speciesSize = 100;
@@ -151,15 +152,7 @@ joint.shapes.custom.FormNote = joint.dia.Element.define(
                         namespaceURI: 'http://www.w3.org/1999/xhtml',
                         selector: 'formContainer',
                         attributes: {
-                            style: `
-                                width:350px;
-                                height:150px;
-                                margin:0;
-                                padding:0;
-                                box-sizing:border-box;
-                                font-size:10px;
-                                overflow:hidden;
-                            `
+                            class: 'form-note-container',
                         }
                     }
                 ]
@@ -175,24 +168,11 @@ joint.shapes.custom.FormNoteView = joint.dia.ElementView.extend({
         if (!container) return this;
 
         container.innerHTML = `
-    <div style="
-        width: 350px;
-        height: 150px;
-        box-sizing: border-box;
-        background: #fffbe6;
-        border: 2px solid #333;
-        border-radius: 10px;
-        padding: 35px;
-        font-family: sans-serif;
-        font-size: 28px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        gap: 20px;
+    <div class="FormNoteViewDiv"
     ">
-        <div style="display:flex; flex-direction:column;">
-            <label style="font-weight:bold;">Vessel:</label>
-            <input type="number" min="1" max="100" joint-selector="vesselInput" style="padding:8px; font-size:28px;"/>
+        <div class="FormNoteViewInnerDiv">
+            <label class="FormNoteViewLable">Vessel:</label>
+            <input type="number" min="1" max="100" joint-selector="vesselInput"/>
         </div>
     </div>
 `;

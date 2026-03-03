@@ -19,6 +19,8 @@
   },
   "homepage": "https://github.com/mdnasim1552/SVGExperiment#readme",
   "devDependencies": {
+    "css-loader": "^7.1.4",
+    "mini-css-extract-plugin": "^2.10.0",
     "webpack": "^5.105.2",
     "webpack-cli": "^6.0.1"
   },

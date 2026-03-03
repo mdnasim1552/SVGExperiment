@@ -105,7 +105,7 @@ body {
  /* g[model-id="myLeftBLink"] path[joint-selector="line"]{
     filter: drop-shadow(2px 3px 4px rgba(0,0,0,0.4));
  } */
-#controls {
+#diagramBtncontrols {
     position: fixed;
     top: 10px;
     right: 10px;
@@ -115,6 +115,41 @@ body {
     border-radius: 5px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
-#controls button {
+#diagramBtncontrols button {
     margin-right: 5px;
+}
+.FormNoteViewDiv{
+    width: 350px;
+    height: 150px;
+    box-sizing: border-box;
+    background: #fffbe6;
+    border: 2px solid #333;
+    border-radius: 10px;
+    padding: 35px;
+    font-family: sans-serif;
+    font-size: 28px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 20px;
+}
+.FormNoteViewInnerDiv{
+    display:flex; 
+    flex-direction:column;
+}
+.FormNoteViewInnerDiv label {
+    font-weight:bold;
+}
+.FormNoteViewInnerDiv input {
+    padding:8px; 
+    font-size:28px;
+}
+.form-note-container{
+    width:350px;
+    height:150px;
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-size:10px;
+    overflow:hidden;
 }

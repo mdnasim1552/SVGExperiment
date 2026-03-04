@@ -1568,7 +1568,9 @@ document.getElementById('loadBtn').addEventListener('click', () => {
     }
     try {
         const snapshot = JSON.parse(savedJSON);
-        restoreFromSnapshot.restoreFromSnapshot(graph, snapshot, shapeNamespace,joint);
+        executeWithSnapshot(graph, () => {
+            restoreFromSnapshot.restoreFromSnapshot(graph, snapshot, shapeNamespace,joint);
+        });
         refreshPaper();
         alert('Diagram loaded successfully!');
     } catch (err) {

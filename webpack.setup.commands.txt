@@ -3,3 +3,67 @@
 3.npm install perfect-freehand @joint/core
 4.npm install --save-dev css-loader mini-css-extract-plugin
 5.npm run build
+How to setup webpack in asp.net core mvc project?
+step-1: from terminal execute all the above commands.
+step-2: add webpack.config.js file and specify entry and destination
+
+*****webpack.config.js*****
+import path from 'path';
+import { fileURLToPath } from 'url';
+import MiniCssExtractPlugin from 'mini-css-extract-plugin';
+
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export default {
+  mode: 'production',
+    entry: {
+        coronaryDiagram: path.resolve(__dirname, './wwwroot/js/src/coronaryDiagram/index.js'),
+        /*diagram2: path.resolve(__dirname, '.wwwroot/js/src/diagram2/index.js')*/
+    },
+  output: {
+      filename: '[name].bundle.js',
+      path: path.resolve(__dirname, 'wwwroot/js/dist'),
+      clean: true
+  },
+  module: {
+    rules: [
+      {
+        test: /\.css$/i,
+        use: [
+          MiniCssExtractPlugin.loader, // 👈 extracts to file
+          'css-loader'
+        ],
+      },
+    ],
+  },
+  plugins: [
+    new MiniCssExtractPlugin({
+        filename: '[name].bundle.css'
+    }),
+  ],
+};
+***********end*************
+
+step-3: modify scripts and module in package.json like below
+"scripts": {
+    "build": "webpack"
+  },
+"type": "module",
+
+step-4: In csproj file add NpmBuild command like below
+
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- 👇 Add here -->
+  <Target Name="NpmBuild" BeforeTargets="Build">
+    <Exec Command="npm install" />
+    <Exec Command="npm run build" />
+  </Target>
+
+</Project>

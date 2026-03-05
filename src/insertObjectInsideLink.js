@@ -23,7 +23,8 @@ export function insertUpBottomStroke(link, x,y,graph, paper,joint) {
     upBottomStrokeShape.set('linkAttachment', {
         linkId: link.id,
         ratio,
-        widthPercent:10 // default to 10% of link length, can be adjusted
+        lengthPercent:10, // default to 10% of link length, can be adjusted
+        heightPercent:10
     });
 
     graph.addCell(upBottomStrokeShape);
@@ -53,11 +54,12 @@ export function updateUpBottomStrokeShape(upBottomStrokeShape,graph,paper) {
     const segments = 6;
     const baseHeight = 30;
     const pixelLength = 60;
-    const widthPercent = attachment.widthPercent || 10; // fallback
+    const lengthPercent = attachment.lengthPercent || 10; // fallback
+    const heightPercent = attachment.heightPercent || 10; // fallback
 
     const totalLength = connection.length();
     //const upBottomStrokeShapeLength = pixelLength / totalLength;
-    const upBottomStrokeShapeLength = (widthPercent / 100) / 2;
+    const upBottomStrokeShapeLength = (lengthPercent / 100) / 2;
     const step = upBottomStrokeShapeLength / segments;
     const safeRatio = Math.max(
         upBottomStrokeShapeLength,
@@ -68,7 +70,7 @@ export function updateUpBottomStrokeShape(upBottomStrokeShape,graph,paper) {
     if (thinning != 0) {
         organicSize = organicSize + (organicSize + (link.attr('line/strokeWidth') || 2)) / 2;
     }
-
+    const upBottomStrokeShapeHeight =((heightPercent / 100) * organicSize)/2;
     const topPoints = [];
     const bottomPoints = [];
 
@@ -90,7 +92,7 @@ export function updateUpBottomStrokeShape(upBottomStrokeShape,graph,paper) {
 
         const perpX = -dy / len;
         const perpY = dx / len;
-        const height = organicSize * (1 - thinning * r);
+        const height = (organicSize-upBottomStrokeShapeHeight) * (1 - thinning * r);
 
         topPoints.push(`${p.x + perpX * height/2},${p.y + perpY * height/2}`);
         bottomPoints.unshift(`${p.x - perpX * height/2},${p.y - perpY * height/2}`);
@@ -104,8 +106,8 @@ export function updateUpBottomStrokeShape(upBottomStrokeShape,graph,paper) {
     const color = link.attr('line/fill');
     upBottomStrokeShape.attr({
         fillBody: { d: fillD,fill:color, stroke: color }, // fill color matches link
-        topPath: { d: topD, stroke: 'yellow' },      // top stroke color
-        bottomPath: { d: bottomD, stroke: 'yellow' } // bottom stroke color
+        topPath: { d: topD, stroke: 'yellow',strokeWidth: upBottomStrokeShapeHeight },      // top stroke color
+        bottomPath: { d: bottomD, stroke: 'yellow',strokeWidth: upBottomStrokeShapeHeight } // bottom stroke color
     });
 
     //linkView.removeTools();
@@ -133,11 +135,12 @@ export function insertWormOnLink(link, x,y,color,graph, paper,joint) {
     worm.set('linkAttachment', {
         linkId: link.id,
         ratio,
-        widthPercent:10 // default to 10% of link length, can be adjusted
+        lengthPercent:10, // default to 10% of link length, can be adjusted
+        heightPercent:10,
     });
 
     graph.addCell(worm);
-    addNoteToElement.addNoteToElement(graph,paper,joint,worm,x,y);
+    //addNoteToElement.addNoteToElement(graph,paper,joint,worm,x,y);
     updateWormShape(worm, graph, paper);
     graph.stopBatch();
     linkView.removeTools();
@@ -166,10 +169,11 @@ export function updateWormShape(worm,graph,paper) {
 
 
     const pixelLength =  60;
-    const widthPercent = attachment.widthPercent || 10;
+    const lengthPercent = attachment.lengthPercent || 10;
+    const heightPercent = attachment.heightPercent || 10;
     const totalLength = connection.length();
     //const wormLength = pixelLength / totalLength; // convert px to ratio 
-    const wormLength = (widthPercent / 100) / 2;
+    const wormLength = (lengthPercent / 100) / 2;
     const step = wormLength / segments;
     const safeRatio = Math.max(
         wormLength,

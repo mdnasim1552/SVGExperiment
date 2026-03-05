@@ -119,8 +119,6 @@ body {
     margin-right: 5px;
 }
 .FormNoteViewDiv{
-    width: 350px;
-    height: 150px;
     box-sizing: border-box;
     background: #fffbe6;
     border: 2px solid #333;
@@ -130,26 +128,29 @@ body {
     font-size: 28px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    /* justify-content: center; */
     gap: 20px;
+    width:fit-content;
 }
 .FormNoteViewInnerDiv{
     display:flex; 
-    flex-direction:column;
+    flex-direction:row;
+    align-items: center;
 }
 .FormNoteViewInnerDiv label {
     font-weight:bold;
+    margin-right: 10px;
 }
 .FormNoteViewInnerDiv input {
     padding:8px; 
     font-size:28px;
 }
 .form-note-container{
-    width:350px;
-    height:150px;
-    margin:0;
-    padding:0;
+    width:100%;
+    height:100%;
     box-sizing:border-box;
-    font-size:10px;
-    overflow:hidden;
+}
+.FormNoteViewDiv>label{
+    font-size: 45px;
+    font-weight: bold;
 }

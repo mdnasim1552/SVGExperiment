@@ -120,32 +120,31 @@ joint.shapes.custom.UpBottomStroke = joint.dia.Element.define('custom.UpBottomSt
 joint.shapes.custom.FormNote = joint.dia.Element.define(
     'custom.FormNote',
     {
-        size: { width: 350, height: 150 },
-    },
-    {
+        size: { width: 220, height: 120 },
+
+        attrs: {
+            body: {
+                refWidth: '100%',
+                refHeight: '100%',
+                fill: '#fffbe6',
+                stroke: '#333',
+                rx: 10,
+                ry: 10
+            },
+            fo: {
+                refWidth: '100%',
+                refHeight: '100%'
+            }
+        },
+
         markup: [
             {
                 tagName: 'rect',
-                selector: 'body',
-                attributes: {
-                    width: 350,
-                    height: 150,
-                    fill: '#fffbe6',
-                    stroke: '#333',
-                    rx: 10,
-                    ry: 10
-                }
+                selector: 'body'
             },
             {
                 tagName: 'foreignObject',
                 selector: 'fo',
-                attributes: {
-                    width: 350,
-                    height: 150,
-                    x: 0,
-                    y: 0,
-                    overflow: 'hidden'
-                },
                 children: [
                     {
                         tagName: 'div',
@@ -168,32 +167,76 @@ joint.shapes.custom.FormNoteView = joint.dia.ElementView.extend({
         if (!container) return this;
 
         container.innerHTML = `
-    <div class="FormNoteViewDiv"
-    ">
-        <div class="FormNoteViewInnerDiv">
-            <label class="FormNoteViewLable">Vessel:</label>
-            <input type="number" min="1" max="100" joint-selector="vesselInput"/>
-        </div>
-    </div>
-`;
-const input = container.querySelector('[joint-selector="vesselInput"]');
+            <div class="FormNoteViewDiv">
+                <label>Stenosis:</label>
+                <div class="FormNoteViewInnerDiv" joint-selector="heightDiv">
+                    <label class="FormNoteViewLable">Height:</label>
+                    <input type="number" min="1" max="100" joint-selector="vesselHeightInput"/>
+                    <label class="FormNoteViewLable">&nbsp;%</label>
+                </div>
+                <div class="FormNoteViewInnerDiv" joint-selector="lengthDiv">
+                    <label class="FormNoteViewLable">Width:&nbsp;</label>
+                    <input type="number" min="1" max="100" joint-selector="vesselLengthInput"/>
+                    <label class="FormNoteViewLable">&nbsp;%</label>
+                </div>
+            </div>
+        `;
 
-        // 🔥 Restore saved value
-        input.value = this.model.get('vesselValue') || '';
-        const MAX = 100;
-        // 🔥 Save to model when changed
-        input.addEventListener('input', (e) => {
-            let value = parseFloat(e.target.value);
-
-            // If value is above max, clamp it
-            if (!isNaN(value) && value > MAX) {
-                value = MAX;
-                e.target.value = value; // update input
+        const parentId = this.model.get('attachedTo');
+        if (parentId) {
+            const graph = this.paper.model; // assuming paper is accessible
+            const parent = graph.getCell(parentId);
+            if (parent && parent.get('type') === 'custom.Worm') {
+                const heightDiv = container.querySelector('[joint-selector="heightDiv"]');
+                if (heightDiv) heightDiv.style.display = 'none';
             }
+        }
+        if (!container.dataset.initialized) {
+            const lengthInput = container.querySelector('[joint-selector="vesselLengthInput"]');
+            const heightInput = container.querySelector('[joint-selector="vesselHeightInput"]');
+            lengthInput.value = this.model.get('vesselLengthValue') || '';
+            heightInput.value = this.model.get('vesselHeightInput') || '';
+            const MAX = 100;
+            lengthInput.addEventListener('input', (e) => {
+                let value = parseFloat(e.target.value);
+                if (!isNaN(value) && value > MAX) {
+                    value = MAX;
+                    e.target.value = value;
+                }
+                this.model.set('vesselLengthValue', value);
+            });
+            heightInput.addEventListener('input', (e) => {
+                let value = parseFloat(e.target.value);
+                if (!isNaN(value) && value > MAX) {
+                    value = MAX;
+                    e.target.value = value;
+                }
+                this.model.set('vesselHeightInput', value);
+            });
+            container.dataset.initialized = "true";
+        }
+        requestAnimationFrame(() => {
 
-            // Update model
-            this.model.set('vesselValue', value);
+            const content = container.firstElementChild;
+
+            const width = content.scrollWidth+2;
+            const height = content.scrollHeight+2;
+
+            this.model.resize(width, height);
+
+            this.model.attr({
+                body: {
+                    width: width,
+                    height: height
+                },
+                fo: {
+                    width: width,
+                    height: height
+                }
+            });
+
         });
+
         return this;
     }
 });
@@ -1000,7 +1043,7 @@ function showElementMenu({ x, y, elementView, isNote }) {
         menuOpen = false;
     };
 }
-graph.on('change:vesselValue', function(note, value) {
+graph.on('change:vesselLengthValue', function(note, value) {
     const elementId = note.get('attachedTo');
     if (!elementId) return;
 
@@ -1012,7 +1055,30 @@ graph.on('change:vesselValue', function(note, value) {
 
     element.set('linkAttachment', {
         ...attachment,
-        widthPercent: value
+        lengthPercent: value
+    });
+    if (element.isElement() && element.get('type') === 'custom.Worm') {
+        insertObjectInsideLink.updateWormShape(element, graph, paper);
+    } else if(element.isElement() && element.get('type') === 'custom.UpBottomStroke') {
+        insertObjectInsideLink.updateUpBottomStrokeShape(element, graph, paper);
+    }
+    else {
+        insertObjectInsideLink.updateRectanglePosition(element, graph, paper, joint, isRestoring);
+    }
+});
+graph.on('change:vesselHeightInput', function(note, value) {
+    const elementId = note.get('attachedTo');
+    if (!elementId) return;
+
+    const element = graph.getCell(elementId);
+    if (!element) return;
+
+    const attachment = element.get('linkAttachment');
+    if (!attachment) return;
+
+    element.set('linkAttachment', {
+        ...attachment,
+        heightPercent: value
     });
     if (element.isElement() && element.get('type') === 'custom.Worm') {
         insertObjectInsideLink.updateWormShape(element, graph, paper);
@@ -1234,7 +1300,8 @@ paper.on('element:pointermove', function(view, evt, x, y) {
     element.set('linkAttachment', {
         linkId: attachment.linkId,
         ratio: ratio,
-        widthPercent: attachment.widthPercent || 10,
+        lengthPercent: attachment.lengthPercent || 10,
+        heightPercent: attachment.heightPercent || 10,
     });
     if (element.isElement() && element.get('type') === 'custom.Worm') {
         insertObjectInsideLink.updateWormShape(element, graph, paper);

@@ -27,6 +27,9 @@ export default {
       path: path.resolve(__dirname, 'wwwroot/js/dist'),
       clean: true
   },
+  performance: {
+      hints: false
+  },
   module: {
     rules: [
       {

@@ -68,5 +68,12 @@ step-4: In csproj file add NpmBuild command like below
     <Exec Command="npm install" />
     <Exec Command="npm run build" />
   </Target>
-
+ (Recommended)<!-- ✅ Professional Solution -->
+<Target Name="NpmInstall" BeforeTargets="Build"
+        Condition="!Exists('node_modules')">
+  <Exec Command="npm install" />
+</Target>
+<Target Name="NpmBuild" BeforeTargets="Publish">
+  <Exec Command="npm run build" />
+</Target>
 </Project>

@@ -1625,6 +1625,7 @@ document.getElementById('saveBtn').addEventListener('click', () => {
     const json = graph.toJSON();
     localStorage.setItem('mySavedDiagram', JSON.stringify(json));
     console.log(json);
+    console.log(parseStenosis(json));
     alert('Diagram saved successfully!');
 });
 document.getElementById('loadBtn').addEventListener('click', () => {
@@ -1653,6 +1654,67 @@ document.getElementById('undoBtn').addEventListener('click', () => {
 document.getElementById('redoBtn').addEventListener('click', () => {
     redo();
 });
+function parseStenosis(graphJSON) {
+
+    const cells = graphJSON.cells || graphJSON;
+
+    const linkMap = new Map();
+    const noteMap = new Map();
+    const results = [];
+
+    // -------- Pass 1 : index links + notes --------
+    for (const cell of cells) {
+
+        if (cell.type === "Branch") {
+            linkMap.set(cell.id, cell);
+        }
+
+        if (cell.type === "custom.FormNote") {
+            noteMap.set(cell.id, cell);
+        }
+    }
+
+    // -------- Pass 2 : process custom shapes --------
+    for (const cell of cells) {
+
+        if (cell.type !== "custom.UpBottomStroke" &&
+            cell.type !== "custom.Worm") continue;
+
+        const linkId = cell.linkAttachment?.linkId;
+        const ratio = cell.linkAttachment?.ratio;
+
+        const link = linkMap.get(linkId);
+        if (!link) continue;
+
+        let vesselName = null;
+
+        if (link.labels) {
+            for (const label of link.labels) {
+
+                const min = label.range?.min ?? 0;
+                const max = label.range?.max ?? 1;
+
+                if (ratio >= min && ratio <= max) {
+                    vesselName = label.attrs?.labelText?.text;
+                    break;
+                }
+            }
+        }
+        const noteId = cell.attachedNotes?.[0]?.noteId;
+        const formNote = noteMap.get(noteId);
+
+        const percent = formNote?.vesselHeightInput ?? null;
+
+        results.push({
+            vessel: vesselName,
+            object: cell.type.replace("custom.", ""),
+            percent: percent
+        });
+    }
+
+    return results;
+}
+
 hideAllLinkLabels();
 setTimeout(() => {
     paper.unfreeze();

@@ -124,7 +124,7 @@ export function addNoteToElement(graph,paper,joint,element,x,y) {
         //size: { width: noteWidth, height: noteHeight },
         isNote: true,
         vesselLengthValue: element.get('linkAttachment').lengthPercent || 10,
-        vesselHeightInput: element.get('linkAttachment').heightPercent || 10,
+        vesselHeightInput: element.get('linkAttachment').heightPercent || 50,
     });
     note.set('attachedTo', element.id);
     graph.addCell(note);

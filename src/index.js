@@ -1301,7 +1301,7 @@ paper.on('element:pointermove', function(view, evt, x, y) {
         linkId: attachment.linkId,
         ratio: ratio,
         lengthPercent: attachment.lengthPercent || 10,
-        heightPercent: attachment.heightPercent || 10,
+        heightPercent: attachment.heightPercent || 50,
     });
     if (element.isElement() && element.get('type') === 'custom.Worm') {
         insertObjectInsideLink.updateWormShape(element, graph, paper);

@@ -24,7 +24,7 @@ export function insertUpBottomStroke(link, x,y,graph, paper,joint) {
         linkId: link.id,
         ratio,
         lengthPercent:10, // default to 10% of link length, can be adjusted
-        heightPercent:10
+        heightPercent:50
     });
 
     graph.addCell(upBottomStrokeShape);
@@ -34,7 +34,8 @@ export function insertUpBottomStroke(link, x,y,graph, paper,joint) {
     linkView.removeTools();
 
 }
-export function updateUpBottomStrokeShape(upBottomStrokeShape,graph,paper) {
+export function updateUpBottomStrokeShape(upBottomStrokeShape, graph, paper) {
+
     const attachment = upBottomStrokeShape.get('linkAttachment');
     if (!attachment) return;
 
@@ -51,51 +52,74 @@ export function updateUpBottomStrokeShape(upBottomStrokeShape,graph,paper) {
     upBottomStrokeShape.rotate(0);
 
     const ratio = attachment.ratio;
-    const segments = 6;
-    const baseHeight = 30;
-    const pixelLength = 60;
-    const lengthPercent = attachment.lengthPercent || 10; // fallback
-    const heightPercent = attachment.heightPercent || 10; // fallback
+    const segments = 10;
 
-    const totalLength = connection.length();
-    //const upBottomStrokeShapeLength = pixelLength / totalLength;
-    const upBottomStrokeShapeLength = (lengthPercent / 100) / 2;
-    const step = upBottomStrokeShapeLength / segments;
-    const safeRatio = Math.max(
-        upBottomStrokeShapeLength,
-        Math.min(1 - upBottomStrokeShapeLength, ratio)
-    );
+    const lengthPercent = attachment.lengthPercent || 10;
+    const heightPercent = attachment.heightPercent || 50;
+
+    const baseHeight = 30;
     const thinning = link.attr('line/organicStrokeThinning') || 0;
+
     let organicSize = link.attr('line/organicStrokeSize') || baseHeight;
-    if (thinning != 0) {
-        organicSize = organicSize + (organicSize + (link.attr('line/strokeWidth') || 2)) / 2;
+
+    if (thinning !== 0) {
+        organicSize =
+            organicSize +
+            (organicSize + (link.attr('line/strokeWidth') || 2)) / 2;
     }
-    const upBottomStrokeShapeHeight =((heightPercent / 100) * organicSize)/2;
+
+    const shapeLength = (lengthPercent / 100) / 2;
+    const step = shapeLength / segments;
+
+    const safeRatio = Math.max(
+        shapeLength,
+        Math.min(1 - shapeLength, ratio)
+    );
+
     const topPoints = [];
     const bottomPoints = [];
 
+    let avgStroke = 0;
+    let count = 0;
+
     for (let i = -segments; i <= segments; i++) {
-        //let r = Math.max(0, Math.min(1, ratio + i * step));
-        let r = safeRatio + i * step;
+
+        const r = safeRatio + i * step;
+
         const p = connection.pointAt(r);
         if (!p) continue;
 
-        const delta = step / 2;//0.002;
+        const delta = step / 2;
+
         const before = connection.pointAt(Math.max(0, r - delta));
         const after = connection.pointAt(Math.min(1, r + delta));
+
         if (!before || !after) continue;
 
         const dx = after.x - before.x;
         const dy = after.y - before.y;
+
         const len = Math.sqrt(dx * dx + dy * dy);
         if (!len) continue;
 
         const perpX = -dy / len;
         const perpY = dx / len;
-        const height = (organicSize-upBottomStrokeShapeHeight) * (1 - thinning * r);
 
-        topPoints.push(`${p.x + perpX * height/2},${p.y + perpY * height/2}`);
-        bottomPoints.unshift(`${p.x - perpX * height/2},${p.y - perpY * height/2}`);
+        // thinning along link
+        const thinningFactor = (1 - thinning * r);
+        const localSize = organicSize * thinningFactor;
+
+        // stroke thickness
+        const strokeWidth = (heightPercent / 100) * localSize / 2;
+
+        // keep stroke fully inside link
+        const offset = (localSize - strokeWidth) / 2;
+
+        topPoints.push(`${p.x + perpX * offset},${p.y + perpY * offset}`);
+        bottomPoints.unshift(`${p.x - perpX * offset},${p.y - perpY * offset}`);
+
+        avgStroke += strokeWidth;
+        count++;
     }
 
     if (!topPoints.length || !bottomPoints.length) return;
@@ -103,14 +127,28 @@ export function updateUpBottomStrokeShape(upBottomStrokeShape,graph,paper) {
     const fillD = `M ${topPoints.join(' L ')} L ${bottomPoints.join(' L ')} Z`;
     const topD = `M ${topPoints.join(' L ')}`;
     const bottomD = `M ${bottomPoints.join(' L ')}`;
-    const color = link.attr('line/fill');
-    upBottomStrokeShape.attr({
-        fillBody: { d: fillD,fill:color, stroke: color }, // fill color matches link
-        topPath: { d: topD, stroke: 'yellow',strokeWidth: upBottomStrokeShapeHeight },      // top stroke color
-        bottomPath: { d: bottomD, stroke: 'yellow',strokeWidth: upBottomStrokeShapeHeight } // bottom stroke color
-    });
 
-    //linkView.removeTools();
+    const finalStrokeWidth = avgStroke / count;
+
+    const color = link.attr('line/fill');
+
+    upBottomStrokeShape.attr({
+        fillBody: {
+            d: fillD,
+            fill: color,
+            stroke: color
+        },
+        topPath: {
+            d: topD,
+            stroke: 'yellow',
+            strokeWidth: finalStrokeWidth
+        },
+        bottomPath: {
+            d: bottomD,
+            stroke: 'yellow',
+            strokeWidth: finalStrokeWidth
+        }
+    });
 }
 export function insertWormOnLink(link, x,y,color,graph, paper,joint) {
     graph.startBatch();
@@ -136,7 +174,7 @@ export function insertWormOnLink(link, x,y,color,graph, paper,joint) {
         linkId: link.id,
         ratio,
         lengthPercent:10, // default to 10% of link length, can be adjusted
-        heightPercent:10,
+        heightPercent:50,
     });
 
     graph.addCell(worm);
@@ -170,7 +208,7 @@ export function updateWormShape(worm,graph,paper) {
 
     const pixelLength =  60;
     const lengthPercent = attachment.lengthPercent || 10;
-    const heightPercent = attachment.heightPercent || 10;
+    const heightPercent = attachment.heightPercent || 50;
     const totalLength = connection.length();
     //const wormLength = pixelLength / totalLength; // convert px to ratio 
     const wormLength = (lengthPercent / 100) / 2;

@@ -1,25 +1,3 @@
-function getVisibleArea(paper) {
-
-    const rect = paper.el.getBoundingClientRect();
-
-    // Convert browser pixels to graph coordinates
-    const topLeft = paper.clientToLocalPoint({
-        x: rect.left,
-        y: rect.top
-    });
-
-    const bottomRight = paper.clientToLocalPoint({
-        x: rect.right,
-        y: rect.bottom
-    });
-
-    return {
-        x: topLeft.x,
-        y: topLeft.y,
-        width: bottomRight.x - topLeft.x,
-        height: bottomRight.y - topLeft.y
-    };
-}
 function isOverlapping(rect1, rect2) {
     return !(
         rect1.x + rect1.width <= rect2.x ||
@@ -41,67 +19,27 @@ function getExistingNoteRects(graph) {
             };
         });
 }
-export function addNoteToElement(graph,paper,joint,element,x,y) {
+export function addNoteToElement(graph,paper,joint,element) {
     const existingNotes = element.get('attachedNotes') || [];
     if (existingNotes.length > 0) {
         console.warn('Element already has a note. Skipping.');
         return; // stop here
     }
-    const bbox = element.getBBox();
-    const visibleArea = getVisibleArea(paper);
 
     const noteWidth = 350;
     const noteHeight = 150;
-    const margin = 20;
 
-    // Available spaces
-    const spaces = {
-        top: y - visibleArea.y,
-        right: (visibleArea.x + visibleArea.width) - (x + bbox.width),
-        bottom: (visibleArea.y + visibleArea.height) - (y + bbox.height),
-        left: x - visibleArea.x
-    };
+    let noteX=0, noteY=0;
 
-    // Pick direction with MAX space
-    const direction = Object.keys(spaces).reduce((a, b) =>
-        spaces[a] > spaces[b] ? a : b
-    );
-
-    let noteX, noteY;
-
-    switch (direction) {
-
-        case 'top':
-            noteX = x + bbox.width / 2 - noteWidth / 2;
-            noteY = y - noteHeight - margin;
-            break;
-
-        case 'right':
-            noteX = x + bbox.width + margin;
-            noteY = y + bbox.height / 2 - noteHeight / 2;
-            break;
-
-        case 'bottom':
-            noteX = x + bbox.width / 2 - noteWidth / 2;
-            noteY = y + bbox.height + margin;
-            break;
-
-        case 'left':
-            noteX = x - noteWidth - margin;
-            noteY = y + bbox.height / 2 - noteHeight / 2;
-            break;
-    }
-
-    // ---- Clamp inside visible area ----
-    noteX = Math.max(visibleArea.x,
-        Math.min(noteX, visibleArea.x + visibleArea.width - noteWidth));
-
-    noteY = Math.max(visibleArea.y,
-        Math.min(noteY, visibleArea.y + visibleArea.height - noteHeight));
-    if(spaces.right>spaces.left){
-        noteX = noteX-700;
-    }else if(spaces.right<spaces.left){
-        noteX = noteX+700;
+    const elementslink = graph.getCell(element.get('linkAttachment').linkId);
+    const linkView = paper.findViewByModel(elementslink);
+    const point = linkView.getPointAtRatio(element.get('linkAttachment').ratio);
+    const x = point.x;
+    const y = point.y;
+    if(x>=900){
+        noteX=1800
+    }else{
+        noteX=-200
     }
     let newRect = {
         x: noteX,
@@ -119,7 +57,7 @@ export function addNoteToElement(graph,paper,joint,element,x,y) {
     const note = new joint.shapes.custom.FormNote({
        position: {
             x: noteX, //x + element.size().width + 20,//40
-            y: noteY+120 //1050
+            y: noteY
         },
         //size: { width: noteWidth, height: noteHeight },
         isNote: true,

@@ -1037,7 +1037,7 @@ function showElementMenu({ x, y, elementView, isNote }) {
                 model.remove();
             }
         }else if (action === 'add-note') {
-            addNoteToElement.addNoteToElement(graph,paper,joint,model,x,y);
+            addNoteToElement.addNoteToElement(graph,paper,joint,model);
         }
         elementMenu.style.display = 'none';
         menuOpen = false;
@@ -1231,6 +1231,13 @@ function showLinkColorMenu({ x, y, linkView, segmentIndex }) {
         if (!link) return;
         const linkView = paper.findViewByModel(link);
         if (!linkView) return;
+
+        const localPoint = paper.clientToLocalPoint({x: x, y: y});
+        const connection = linkView.getConnection();
+        const totalLength = connection.length();
+        const closestLength = connection.closestPointLength(localPoint);
+        let ratio = Math.max(0, Math.min(1, closestLength / totalLength));
+
         if (color && !action){
             executeWithSnapshot(graph, () => {
                 splitLinkAndInertObject.splitLinkWithChildren(linkView, activeSegmentIndex, color, Branch);
@@ -1243,15 +1250,15 @@ function showLinkColorMenu({ x, y, linkView, segmentIndex }) {
             }else if(action === 'show-label') {
                 showAllLinkLabels();
             }else if(action==='add-rectangle'){
-                insertObjectInsideLink.insertRectangleOnLink(link,x,y,graph,paper,joint.shapes.standard.Rectangle,joint,isRestoring);
+                insertObjectInsideLink.insertRectangleOnLink(link,ratio,x,y,graph,paper,joint.shapes.standard.Rectangle,joint,isRestoring);
             }else if(action==='divide-segment'){                
                 executeWithSnapshot(graph, () => {
                     splitLinkAndInertObject.splitLinkAtPointWithRectangle(linkView, x,y,paper,Branch,joint.shapes.standard.Rectangle);
                 });
             }else if(action==='add-worm'){ 
-                insertObjectInsideLink.insertWormOnLink(link,x,y,color,graph,paper,joint);
+                insertObjectInsideLink.insertWormOnLink(link,ratio,color,graph,paper,joint);
             }else if(action==='add-up-bottom-stroke'){
-                insertObjectInsideLink.insertUpBottomStroke(link,x,y,graph,paper,joint);
+                insertObjectInsideLink.insertUpBottomStroke(link,ratio,graph,paper,joint);
             }
             
             colorMenu.style.display = 'none';
@@ -1654,6 +1661,12 @@ document.getElementById('undoBtn').addEventListener('click', () => {
 document.getElementById('redoBtn').addEventListener('click', () => {
     redo();
 });
+document.getElementById('insertBtn').addEventListener('click', () => {
+    const vesselName="PRCA";
+    const objectType="Worm";
+   // insertObjectByVessel(vesselName, objectType);
+    insertObjectByVessel(vesselName, "UpBottomStroke");
+});
 function parseStenosis(graphJSON) {
 
     const cells = graphJSON.cells || graphJSON;
@@ -1713,6 +1726,50 @@ function parseStenosis(graphJSON) {
     }
 
     return results;
+}
+function insertObjectByVessel(vesselName, objectType) {
+
+    const links = graph.getLinks();
+
+    for (const link of links) {
+
+        const labels = link.get('labels');
+        if (!labels) continue;
+
+        for (const label of labels) {
+
+            const name = label.attrs?.labelText?.text;
+
+            if (name !== vesselName) continue;
+
+             // middle of label range
+            const min = label.range?.min ?? 0;
+            const max = label.range?.max ?? 1;
+
+            const ratio = (min + max) / 2;
+
+            const linkView = paper.findViewByModel(link);
+            if (!linkView) return;
+
+            const point = linkView.getPointAtRatio(ratio);
+
+
+            const x = point.x;
+            const y = point.y;
+
+            if (objectType === "Worm") {
+                insertObjectInsideLink.insertWormOnLink(link,ratio,"#000000", graph, paper, joint);
+            }
+
+            if (objectType === "UpBottomStroke") {
+                insertObjectInsideLink.insertUpBottomStroke(link,ratio, graph, paper, joint);
+            }
+
+            return;
+        }
+    }
+
+    console.warn("Vessel not found:", vesselName);
 }
 
 hideAllLinkLabels();

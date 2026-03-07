@@ -1,23 +1,9 @@
 import * as addNoteToElement from './addNoteToElement.js';
-export function insertUpBottomStroke(link, x,y,graph, paper,joint) {
+export function insertUpBottomStroke(link,ratio,graph, paper,joint) {
     graph.startBatch();
 
     const linkView = paper.findViewByModel(link);
     if (!linkView) return;
-
-    const localPoint = paper.clientToLocalPoint({
-        x: x,
-        y: y
-    });
-
-    const connection = linkView.getConnection();
-
-    const totalLength = connection.length();
-    const closestLength = connection.closestPointLength(localPoint);
-    // let ratio = closestLength / totalLength;
-    // ratio = Math.max(0, Math.min(1, ratio));
-    // ratio = Math.round(ratio * 1000) / 1000; // optional: 0.001 precision
-    let ratio = Math.max(0, Math.min(1, closestLength / totalLength));
     const upBottomStrokeShape = new joint.shapes.custom.UpBottomStroke();
 
     upBottomStrokeShape.set('linkAttachment', {
@@ -27,9 +13,9 @@ export function insertUpBottomStroke(link, x,y,graph, paper,joint) {
         heightPercent:50
     });
 
-    graph.addCell(upBottomStrokeShape);
-    addNoteToElement.addNoteToElement(graph,paper,joint,upBottomStrokeShape,x,y);
+    graph.addCell(upBottomStrokeShape);  
     updateUpBottomStrokeShape(upBottomStrokeShape, graph, paper);
+    addNoteToElement.addNoteToElement(graph,paper,joint,upBottomStrokeShape);
     graph.stopBatch();
     linkView.removeTools();
 
@@ -150,24 +136,10 @@ export function updateUpBottomStrokeShape(upBottomStrokeShape, graph, paper) {
         }
     });
 }
-export function insertWormOnLink(link, x,y,color,graph, paper,joint) {
+export function insertWormOnLink(link,ratio,color,graph, paper,joint) {
     graph.startBatch();
     const linkView = paper.findViewByModel(link);
-    if (!linkView) return;
-
-    const localPoint = paper.clientToLocalPoint({
-        x: x,
-        y: y
-    });
-
-    const connection = linkView.getConnection();
-
-    const totalLength = connection.length();
-    const closestLength = connection.closestPointLength(localPoint);
-    // let ratio = closestLength / totalLength;
-    // ratio = Math.max(0, Math.min(1, ratio));
-    // ratio = Math.round(ratio * 1000) / 1000; // optional: 0.001 precision
-    let ratio = Math.max(0, Math.min(1, closestLength / totalLength));
+    if (!linkView) return;   
     const worm = new joint.shapes.custom.Worm();
     worm.attr('body/fill', color);
     worm.set('linkAttachment', {
@@ -178,8 +150,8 @@ export function insertWormOnLink(link, x,y,color,graph, paper,joint) {
     });
 
     graph.addCell(worm);
-    //addNoteToElement.addNoteToElement(graph,paper,joint,worm,x,y);
     updateWormShape(worm, graph, paper);
+    addNoteToElement.addNoteToElement(graph,paper,joint,worm);
     graph.stopBatch();
     linkView.removeTools();
 }
@@ -255,24 +227,10 @@ export function updateWormShape(worm,graph,paper) {
     worm.attr('body/d', pathD);
     //linkView.removeTools();
 }
-export function insertRectangleOnLink(link,x,y,graph, paper,Rectangle,joint,isRestoring) {
+export function insertRectangleOnLink(link,ratio,x,y,graph, paper,Rectangle,joint,isRestoring) {
     graph.startBatch();
     const linkView = paper.findViewByModel(link);
     if (!linkView) return;
-
-    const localPoint = paper.clientToLocalPoint({
-        x: x,
-        y: y
-    });
-
-    const connection = linkView.getConnection();
-
-    const totalLength = connection.length();
-    const closestLength = connection.closestPointLength(localPoint);
-    // let ratio = closestLength / totalLength;
-    // ratio = Math.max(0, Math.min(1, ratio));
-    // ratio = Math.round(ratio * 1000) / 1000; // optional: 0.001 precision
-    let ratio = Math.max(0, Math.min(1, closestLength / totalLength));
     const rect = new Rectangle({
         size: { width: 40, height: 30 }, // height will auto-adjust
         attrs: {

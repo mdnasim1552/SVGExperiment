@@ -24,7 +24,7 @@ export function buildBranches(Branch){
             labels: [
                 {
                     range: { min: 0.05, max: 0.25 },
-                    attrs: { labelText: { text: 'PRCA' } },
+                    attrs: { labelText: { text: 'PRCA2' } },
                     position: { distance: 0.15, angle: 10 }
                 },
                 {

@@ -1328,25 +1328,171 @@ paper.on('element:pointerdown', (view, evt) => {
     dragStartPosition.set(element.id, element.get('linkAttachment').ratio);
 });
 
-paper.on('element:pointerup', (view, evt) => {
+// paper.on('element:pointerup', (view, evt) => {
+//     const element = view.model;
+//     const attachment = element.get('linkAttachment');
+//     if (!attachment) return;
+
+//     const startRatio = dragStartPosition.get(element.id);
+//     dragStartPosition.delete(element.id);
+
+//     const endRatio = element.get('linkAttachment').ratio;
+
+//     if (startRatio === undefined || startRatio === endRatio) return;
+
+//     pushOperation({
+//         type: 'moveAttachment',
+//         element: element,
+//         from: startRatio,
+//         to: endRatio
+//     });
+// });
+paper.on('element:pointerup', (view) => {
+
     const element = view.model;
     const attachment = element.get('linkAttachment');
     if (!attachment) return;
 
+    const link = graph.getCell(attachment.linkId);
+    if (!link) return;
+
     const startRatio = dragStartPosition.get(element.id);
     dragStartPosition.delete(element.id);
 
-    const endRatio = element.get('linkAttachment').ratio;
+    const safeRatio = resolveAttachmentCollision(element, graph, link, paper);
+
+    if (safeRatio !== attachment.ratio) {
+
+        element.set('linkAttachment', {
+            ...attachment,
+            ratio: safeRatio
+        });
+
+        updateElementPosition(element, graph, paper, joint);
+
+    }
+
+    const endRatio = safeRatio;
 
     if (startRatio === undefined || startRatio === endRatio) return;
 
     pushOperation({
         type: 'moveAttachment',
-        element: element,
+        element,
         from: startRatio,
         to: endRatio
     });
+
 });
+export function updateElementPosition(element, graph, paper, joint, isRestoring = false) {
+
+    const type = element.get('type');
+
+    if (type === 'custom.Worm') {
+
+        insertObjectInsideLink.updateWormShape(element, graph, paper);
+
+    } 
+    else if (type === 'custom.UpBottomStroke') {
+
+        insertObjectInsideLink.updateUpBottomStrokeShape(element, graph, paper);
+
+    } 
+    else {
+
+        insertObjectInsideLink.updateRectanglePosition(
+            element,
+            graph,
+            paper,
+            joint,
+            isRestoring
+        );
+
+    }
+}
+export function resolveAttachmentCollision(element, graph, link, paper) {
+
+    const attachment = element.get('linkAttachment');
+    if (!attachment) return attachment?.ratio;
+
+    const linkView = paper.findViewByModel(link);
+    if (!linkView) return attachment.ratio;
+
+    const connection = linkView.getConnection();
+    if (!connection) return attachment.ratio;
+
+    const totalLength = connection.length();
+    if (!totalLength) return attachment.ratio;
+
+    let ratio = attachment.ratio;
+
+    function getElementLength(el) {
+
+        const a = el.get('linkAttachment');
+        const type = el.get('type');
+
+        if (type === 'custom.Worm' || type === 'custom.UpBottomStroke') {
+            const percent = a.lengthPercent || 10;
+            return (percent / 100) * totalLength;
+        }
+
+        return el.size()?.width || 40;
+    }
+
+    const currentLength = getElementLength(element);
+    const currentHalf = (currentLength / totalLength) / 2;
+
+    const others = graph.getElements()
+        .filter(el => {
+            const a = el.get('linkAttachment');
+            return a && a.linkId === link.id && el.id !== element.id;
+        })
+        .map(el => {
+
+            const len = getElementLength(el);
+            const half = (len / totalLength) / 2;
+
+            return {
+                ratio: el.get('linkAttachment').ratio,
+                half
+            };
+
+        })
+        .sort((a, b) => a.ratio - b.ratio);
+
+    let newRatio = ratio;
+
+    // forward resolve
+    for (const o of others) {
+
+        const minGap = currentHalf + o.half;
+
+        if (Math.abs(newRatio - o.ratio) < minGap) {
+            newRatio = o.ratio + minGap;
+        }
+
+    }
+
+    // backward resolve if needed
+    if (newRatio > 1 - currentHalf) {
+
+        newRatio = ratio;
+
+        for (let i = others.length - 1; i >= 0; i--) {
+
+            const o = others[i];
+            const minGap = currentHalf + o.half;
+
+            if (Math.abs(newRatio - o.ratio) < minGap) {
+                newRatio = o.ratio - minGap;
+            }
+
+        }
+
+    }
+
+    return Math.max(currentHalf, Math.min(1 - currentHalf, newRatio));
+}
 function hideAllLinkLabels() {
     graph.getLinks().forEach(link => {
         const labels = link.labels();

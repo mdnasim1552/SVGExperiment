@@ -268,23 +268,23 @@ export function updateRectanglePosition(rect, graph, paper, joint, isRestoring) 
     // 🔹 Use let so ratio can be adjusted
     let ratio = attachment.ratio;
 
-    // 🔹 Ensure no overlap with other rectangles on same link
-    const existingRects = graph.getElements().filter(el => {
-        const a = el.get('linkAttachment');
-        return a && a.linkId === link.id && el.id !== rect.id;
-    });
+    // // 🔹 Ensure no overlap with other rectangles on same link
+    // const existingRects = graph.getElements().filter(el => {
+    //     const a = el.get('linkAttachment');
+    //     return a && a.linkId === link.id && el.id !== rect.id;
+    // });
 
-    const minDistance = rect.size().width / totalLength; // minimum spacing along link
+    // const minDistance = rect.size().width / totalLength; // minimum spacing along link
 
-    existingRects.forEach(el => {
-        const r = el.get('linkAttachment').ratio;
-        if (Math.abs(r - ratio) < minDistance) {
-            if (ratio < r) ratio = r - minDistance;
-            else ratio = r + minDistance;
-        }
-    });
+    // existingRects.forEach(el => {
+    //     const r = el.get('linkAttachment').ratio;
+    //     if (Math.abs(r - ratio) < minDistance) {
+    //         if (ratio < r) ratio = r - minDistance;
+    //         else ratio = r + minDistance;
+    //     }
+    // });
 
-    ratio = Math.max(0, Math.min(1, ratio)); // clamp between 0 and 1
+    // ratio = Math.max(0, Math.min(1, ratio)); // clamp between 0 and 1
 
     // 🔹 Store updated ratio
     //rect.set('linkAttachment', { linkId: link.id, ratio });

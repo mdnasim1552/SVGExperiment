@@ -155,8 +155,7 @@ export function insertWormOnLink(link,ratio,color,graph, paper,joint) {
     graph.stopBatch();
     linkView.removeTools();
 }
-export function updateWormShape(worm,graph,paper) {
-
+export function updateWormShape(worm, graph, paper) {
     const attachment = worm.get('linkAttachment');
     if (!attachment) return;
 
@@ -169,7 +168,7 @@ export function updateWormShape(worm,graph,paper) {
     const connection = linkView.getConnection();
     if (!connection) return;
 
-    // 🚀 CRITICAL FIX
+    // Reset transform
     worm.position(0, 0);
     worm.rotate(0);
 
@@ -177,37 +176,34 @@ export function updateWormShape(worm,graph,paper) {
     const segments = 6;
     const baseHeight = 30;
 
-
-    const pixelLength =  60;
     const lengthPercent = attachment.lengthPercent || 10;
     const heightPercent = attachment.heightPercent || 50;
-    const totalLength = connection.length();
-    //const wormLength = pixelLength / totalLength; // convert px to ratio 
+
+    const thinning = link.attr('line/organicStrokeThinning') || 0;
+    let organicSize = link.attr('line/organicStrokeSize') || baseHeight;
+
+    if (thinning !== 0) {
+        organicSize = organicSize + (organicSize + (link.attr('line/strokeWidth') || 2)) / 2;
+    }
+
     const wormLength = (lengthPercent / 100) / 2;
     const step = wormLength / segments;
-    const safeRatio = Math.max(
-        wormLength,
-        Math.min(1 - wormLength, ratio)
-    );
-    
-    const thinning = link.attr('line/organicStrokeThinning') || 0;
-    let organicSize = (link.attr('line/organicStrokeSize') || baseHeight);
-    if(thinning!=0){
-        organicSize=organicSize+(organicSize+link.attr('line/strokeWidth'))/2;
-    }
-    const top = [];
-    const bottom = [];
+    const safeRatio = Math.max(wormLength, Math.min(1 - wormLength, ratio));
+
+    const topPoints = [];
+    const bottomPoints = [];
+
+    let avgStroke = 0;
+    let count = 0;
 
     for (let i = -segments; i <= segments; i++) {
-        let r = safeRatio + i * step;
-       // let r = ratio + i *step;// 0.01;
-        //r = Math.max(0, Math.min(1, r));
+        const r = safeRatio + i * step;
         const p = connection.pointAt(r);
         if (!p) continue;
 
-        const delta = step / 2;//0.002;
+        const delta = step / 2;
         const before = connection.pointAt(Math.max(0, r - delta));
-        const after  = connection.pointAt(Math.min(1, r + delta));
+        const after = connection.pointAt(Math.min(1, r + delta));
         if (!before || !after) continue;
 
         const dx = after.x - before.x;
@@ -217,15 +213,34 @@ export function updateWormShape(worm,graph,paper) {
 
         const perpX = -dy / len;
         const perpY = dx / len;
-        const height =organicSize * (1 - thinning * r);
-        top.push(`${p.x + perpX * height/2},${p.y + perpY * height/2}`);
-        bottom.unshift(`${p.x - perpX * height/2},${p.y - perpY * height/2}`);
+
+        // Thinning along the link
+        const localSize = organicSize * (1 - thinning * r);
+
+        // Stroke thickness
+        const strokeWidth = (heightPercent / 100) * localSize / 2;
+
+        // Offset to keep worm inside link
+        const offset = (localSize - strokeWidth) / 2;
+
+        topPoints.push(`${p.x + perpX * offset},${p.y + perpY * offset}`);
+        bottomPoints.unshift(`${p.x - perpX * offset},${p.y - perpY * offset}`);
+
+        avgStroke += strokeWidth;
+        count++;
     }
 
-    const pathD = `M ${top.join(' L ')} L ${bottom.join(' L ')} Z`;
+    if (!topPoints.length || !bottomPoints.length) return;
 
-    worm.attr('body/d', pathD);
-    //linkView.removeTools();
+    const pathD = `M ${topPoints.join(' L ')} L ${bottomPoints.join(' L ')} Z`;
+    const finalStrokeWidth = avgStroke / count;
+
+    worm.attr({
+        body: {
+            d: pathD,
+            strokeWidth: finalStrokeWidth
+        }
+    });
 }
 export function insertRectangleOnLink(link,ratio,x,y,graph, paper,Rectangle,joint,isRestoring) {
     graph.startBatch();

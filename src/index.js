@@ -1649,6 +1649,7 @@ labelLayerEl.parentElement.appendChild(labelLayerEl);
 // Events
 function onPaperLinkMouseEnter(linkView,evt) {
     if (menuOpen) return;
+    if(cabgMode) return;
     const target = evt.target;
     if (target.closest('.custom-shape')) return;
     // Scale the tools based on the width of the link.
@@ -2000,7 +2001,134 @@ function insertObjectByVessel(vesselName, objectType) {
 
     console.warn("Vessel not found:", vesselName);
 }
+let cabgMode = false;
+let startPoint = null;
+let startAnchor = null;
 
+document.getElementById('addCABGBtn').addEventListener('click', () => {
+
+    cabgMode = true;
+    startPoint = null;
+    startAnchor = null;
+
+    paper.el.style.cursor = 'crosshair';
+});
+
+
+// CLICK ON EMPTY AREA
+paper.on('blank:pointerdown', function (evt, x, y) {
+
+    if (!cabgMode) return;
+
+    if (!startPoint) {
+
+        startPoint = { x, y };
+
+    } else {
+
+        createCABG(startPoint, { x, y }, startAnchor, null);
+
+        resetCABGMode();
+    }
+
+});
+
+
+// CLICK ON LINK
+paper.on('link:pointerdown', function (linkView, evt, x, y) {
+
+    if (!cabgMode) return;
+
+    if (!startPoint) {
+
+        startPoint = { x, y };
+
+        startAnchor = {
+            linkView: linkView,
+            point: { x, y }
+        };
+
+    } else {
+
+        const endAnchor = {
+            linkView: linkView,
+            point: { x, y }
+        };
+
+        createCABG(startPoint, { x, y }, startAnchor, endAnchor);
+
+        resetCABGMode();
+    }
+
+});
+
+
+function createCABG(start, end, startAnchor, endAnchor) {
+
+    const cabg = new joint.shapes.standard.Link();
+
+    // SOURCE
+    if (startAnchor) {
+
+        const ratio = getLinkRatio(startAnchor.linkView, startAnchor.point);
+
+        cabg.source({
+            id: startAnchor.linkView.model.id,
+            anchor: {
+                name: 'connectionRatio',
+                args: { ratio: ratio }
+            }
+        });
+
+    } else {
+
+        cabg.source(start);
+    }
+
+    // TARGET
+    if (endAnchor) {
+
+        const ratio = getLinkRatio(endAnchor.linkView, endAnchor.point);
+
+        cabg.target({
+            id: endAnchor.linkView.model.id,
+            anchor: {
+                name: 'connectionRatio',
+                args: { ratio: ratio }
+            }
+        });
+
+    } else {
+
+        cabg.target(end);
+    }
+
+    graph.addCell(cabg);
+}
+
+
+function resetCABGMode() {
+
+    cabgMode = false;
+    startPoint = null;
+    startAnchor = null;
+
+    paper.el.style.cursor = 'default';
+}
+
+
+function getLinkRatio(linkView, point) {
+
+    const connection = linkView.getConnection();
+
+    const totalLength = connection.length();
+
+    if (totalLength === 0) return 0;
+
+    const closestLength = connection.closestPointLength(point);
+
+    return closestLength / totalLength;
+}
 hideAllLinkLabels();
 setTimeout(() => {
     paper.unfreeze();

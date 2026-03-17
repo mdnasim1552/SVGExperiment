@@ -1647,26 +1647,48 @@ function deleteVertex(linkView, vertexIndex) {
 const labelLayerEl = paper.getLayerNode('labels');
 labelLayerEl.parentElement.appendChild(labelLayerEl);
 // Events
-function onPaperLinkMouseEnter(linkView,evt) {
+function onPaperLinkMouseEnter(linkView, evt) {
     if (menuOpen) return;
-    if(cabgMode) return;
+    if (cabgMode) return;
+
+    const model = linkView.model;
+
+    // 🔥 PRIORITY: bring CABG to front
+    if (model.get('isCABG')) {
+        model.toFront();
+    }
+
     const target = evt.target;
     if (target.closest('.custom-shape')) return;
-    // Scale the tools based on the width of the link.
-    const branchWidth = linkView.model.attr('line/organicStrokeSize') || 5;
+
+    const branchWidth = model.attr('line/organicStrokeSize') || 5;
     const scale = Math.max(1, Math.min(2, branchWidth / 5));
-    const toolsView = new joint.dia.ToolsView({
-        tools: [
-            new joint.linkTools.Vertices({
-                snapRadius: 0,              // allow very close placement
-                redundancyRemoval: false,   // DO NOT auto-remove
-                vertexAdding: true
+
+    const tools = [
+        new joint.linkTools.Vertices({
+            snapRadius: 0,
+            redundancyRemoval: false,
+            vertexAdding: true
+        }),
+    ];
+
+    if (model.get('isCABG')) {
+        tools.push(
+            new joint.linkTools.Remove({
+                distance: '35%',
+                scale: 3,
             }),
+            new joint.linkTools.SourceAnchor({ restrictArea: false, scale: 3 }),
+            new joint.linkTools.TargetAnchor({ restrictArea: false, scale: 3 })
+        );
+    } else {
+        tools.push(
             new joint.linkTools.SourceAnchor({ restrictArea: false, scale }),
-            //new joint.linkTools.Remove({ scale }),
-        ],
-    });
-    linkView.addTools(toolsView);
+            new joint.linkTools.TargetAnchor({ restrictArea: false, scale })
+        );
+    }
+
+    linkView.addTools(new joint.dia.ToolsView({ tools }));
 }
 function onPaperLinkMouseLeave(linkView) {
     if (menuOpen) return; // keep tools visible while menu is open
@@ -2065,13 +2087,34 @@ paper.on('link:pointerdown', function (linkView, evt, x, y) {
 
 function createCABG(start, end, startAnchor, endAnchor) {
 
-    const cabg = new joint.shapes.standard.Link();
-
+    const cabg = new joint.shapes.standard.Link({ 
+        z: 100, 
+        isCABG: true, 
+        attrs: { 
+            line: 
+            { 
+                stroke: 'RED', 
+                strokeWidth: 20, 
+                targetMarker: 
+                { 
+                    fill: 'RED', 
+                    stroke: 'none', 
+                    d: 'M 5 -20 L -25 0 L 5 20 Z' 
+                } ,
+                pointerEvents: 'stroke',
+            }, 
+        }, 
+        //vertices: getCurvedVertices(start, end, 100) 
+    }); 
+    let startRatio = null;
+    let endRatio = null;
+    let sourceLink = null;
     // SOURCE
     if (startAnchor) {
 
         const ratio = getLinkRatio(startAnchor.linkView, startAnchor.point);
-
+        startRatio = ratio;
+        sourceLink = startAnchor.linkView;
         cabg.source({
             id: startAnchor.linkView.model.id,
             anchor: {
@@ -2089,7 +2132,7 @@ function createCABG(start, end, startAnchor, endAnchor) {
     if (endAnchor) {
 
         const ratio = getLinkRatio(endAnchor.linkView, endAnchor.point);
-
+        endRatio=ratio;
         cabg.target({
             id: endAnchor.linkView.model.id,
             anchor: {
@@ -2104,6 +2147,19 @@ function createCABG(start, end, startAnchor, endAnchor) {
     }
 
     graph.addCell(cabg);
+     // ✅ IMPORTANT: extract vertices AFTER render
+    if (startAnchor && endAnchor &&
+        startAnchor.linkView === endAnchor.linkView) {
+
+        requestAnimationFrame(() => {
+            applySegmentVertices(
+                cabg,
+                startAnchor.linkView,
+                startRatio,
+                endRatio
+            );
+        });
+    }
 }
 
 
@@ -2130,6 +2186,57 @@ function getLinkRatio(linkView, point) {
     return closestLength / totalLength;
 }
 hideAllLinkLabels();
+function applySegmentVertices(cabg, linkView, startRatio, endRatio) {
+
+    const link = linkView.model;
+    const connection = linkView.getConnection();
+    if (!connection) return;
+
+    const totalLength = connection.length();
+
+    let startLen = startRatio * totalLength;
+    let endLen = endRatio * totalLength;
+    if(startLen<endLen){
+        startLen=startLen+50;
+        endLen=endLen-50;
+    }else{
+        startLen=startLen-50;
+        endLen=endLen+50;
+    }
+    const forward = startLen <= endLen; // direction
+
+    // Swap if backwards
+    if (!forward) {
+        [startLen, endLen] = [endLen, startLen];
+    }
+
+    // Original vertices of the parent link
+    const originalVertices = link.vertices() || [];
+
+    // Map each vertex to its length along the path
+    const verticesWithLen = originalVertices.map(v => ({
+        pt: v,
+        len: connection.closestPointLength(v)
+    }));
+
+    // Filter vertices strictly inside start/end
+    let filtered = verticesWithLen
+        .filter(v => v.len > startLen && v.len < endLen)
+        .map(v => v.pt);
+
+    // Sort vertices along the path
+    filtered.sort((a, b) => connection.closestPointLength(a) - connection.closestPointLength(b));
+
+    // Include exact start/end points
+    const startPt = connection.pointAtLength(startLen);
+    const endPt = connection.pointAtLength(endLen);
+
+    const result = forward
+        ? [startPt, ...filtered, endPt]
+        : [endPt, ...filtered.reverse(), startPt]; // reverse if backwards
+
+    cabg.vertices(result);
+}
 setTimeout(() => {
     paper.unfreeze();
 }, 0);

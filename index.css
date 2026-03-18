@@ -3,6 +3,7 @@ body {
     margin: 0;
     overflow: hidden;
 }
+
 .joint-tool[data-tool-name="button"] circle {
     stroke: #131e29;
     stroke-width: 1;
@@ -14,6 +15,7 @@ body {
 }
 
 .joint-tool[data-tool-name="source-anchor"] circle,
+.joint-tool[data-tool-name="target-anchor"] circle,
 .joint-tool[data-tool-name="vertices"] circle {
     stroke: #131e29;
     stroke-width: 1.5;
@@ -36,6 +38,7 @@ body {
     margin: 0;
     padding: 6px 0;
 }
+
 .context-menu li {
     position: relative;
     padding: 8px 14px;
@@ -78,13 +81,13 @@ body {
     position: fixed;
     z-index: 99999;
 }
-#paper-wrapper {
-    width: 800px;
-    height: 800px;
-    margin: 0 auto;
+#diagram-paper-wrapper {
+    width: 540px;
+    height: 540px;
+    margin: 35px auto auto auto;
     display: flex;
-    justify-content: center; /* horizontal center */
-    align-items: center;     /* vertical center */
+    justify-content: center;
+    align-items: center;
     overflow: visible;
 }
 
@@ -99,16 +102,15 @@ body {
     /* transform: scale(1.5); */
     transform-origin: center center; /* scale from center */
 }
+
 .joint-link path {
     filter: drop-shadow(2px 3px 4px rgba(0,0,0,0.4));
 }
- /* g[model-id="myLeftBLink"] path[joint-selector="line"]{
-    filter: drop-shadow(2px 3px 4px rgba(0,0,0,0.4));
- } */
+
 #diagramBtncontrols {
     position: fixed;
-    top: 10px;
-    right: 10px;
+    top: 0px;
+    right: 48px;
     z-index: 1000;
     background: rgba(255,255,255,0.9);
     padding: 5px 10px;
@@ -118,7 +120,7 @@ body {
 #diagramBtncontrols button {
     margin-right: 5px;
 }
-.FormNoteViewDiv{
+.FormNoteViewDiv {
     box-sizing: border-box;
     background: #fffbe6;
     border: 2px solid #333;
@@ -130,27 +132,27 @@ body {
     flex-direction: column;
     /* justify-content: center; */
     gap: 20px;
-    width:fit-content;
+    width: fit-content;
 }
-.FormNoteViewInnerDiv{
-    display:flex; 
-    flex-direction:row;
+.FormNoteViewInnerDiv {
+    display: flex;
+    flex-direction: row;
     align-items: center;
 }
 .FormNoteViewInnerDiv label {
-    font-weight:bold;
+    font-weight: bold;
     margin-right: 10px;
 }
 .FormNoteViewInnerDiv input {
-    padding:8px; 
-    font-size:28px;
+    padding: 8px;
+    font-size: 28px;
 }
-.form-note-container{
-    width:100%;
-    height:100%;
-    box-sizing:border-box;
+.form-note-container {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
 }
-.FormNoteViewDiv>label{
+.FormNoteViewDiv > label {
     font-size: 45px;
     font-weight: bold;
 }

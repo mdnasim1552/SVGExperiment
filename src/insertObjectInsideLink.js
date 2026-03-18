@@ -1,5 +1,5 @@
 import * as addNoteToElement from './addNoteToElement.js';
-export function insertUpBottomStroke(link,ratio,graph, paper,joint) {
+export function insertUpBottomStroke(link, ratio, graph, paper, joint) {
     graph.startBatch();
 
     const linkView = paper.findViewByModel(link);
@@ -9,13 +9,13 @@ export function insertUpBottomStroke(link,ratio,graph, paper,joint) {
     upBottomStrokeShape.set('linkAttachment', {
         linkId: link.id,
         ratio,
-        lengthPercent:10, // default to 10% of link length, can be adjusted
-        heightPercent:50
+        lengthPercent: 10, // default to 10% of link length, can be adjusted
+        heightPercent: 50,
     });
 
-    graph.addCell(upBottomStrokeShape);  
+    graph.addCell(upBottomStrokeShape);
     updateUpBottomStrokeShape(upBottomStrokeShape, graph, paper);
-    addNoteToElement.addNoteToElement(graph,paper,joint,upBottomStrokeShape);
+    addNoteToElement.addNoteToElement(graph, paper, joint, upBottomStrokeShape);
     graph.stopBatch();
     linkView.removeTools();
 
@@ -126,36 +126,37 @@ export function updateUpBottomStrokeShape(upBottomStrokeShape, graph, paper) {
         },
         topPath: {
             d: topD,
-            stroke: 'yellow',
+            stroke: '#FF8F00',
             strokeWidth: finalStrokeWidth
         },
         bottomPath: {
             d: bottomD,
-            stroke: 'yellow',
+            stroke: '#FF8F00',
             strokeWidth: finalStrokeWidth
         }
     });
+    LoadGridData(graph.toJSON());
 }
-export function insertWormOnLink(link,ratio,color,graph, paper,joint) {
+export function insertWormOnLink(link, ratio, color, graph, paper, joint) {
     graph.startBatch();
     const linkView = paper.findViewByModel(link);
-    if (!linkView) return;   
+    if (!linkView) return;
     const worm = new joint.shapes.custom.Worm();
     worm.attr('body/fill', color);
     worm.set('linkAttachment', {
         linkId: link.id,
         ratio,
-        lengthPercent:10, // default to 10% of link length, can be adjusted
-        heightPercent:50,
+        lengthPercent: 10, // default to 10% of link length, can be adjusted
     });
 
     graph.addCell(worm);
     updateWormShape(worm, graph, paper);
-    addNoteToElement.addNoteToElement(graph,paper,joint,worm);
+    addNoteToElement.addNoteToElement(graph, paper, joint, worm);
     graph.stopBatch();
     linkView.removeTools();
 }
 export function updateWormShape(worm, graph, paper) {
+
     const attachment = worm.get('linkAttachment');
     if (!attachment) return;
 
@@ -168,7 +169,7 @@ export function updateWormShape(worm, graph, paper) {
     const connection = linkView.getConnection();
     if (!connection) return;
 
-    // Reset transform
+    // 🚀 CRITICAL FIX
     worm.position(0, 0);
     worm.rotate(0);
 
@@ -176,32 +177,184 @@ export function updateWormShape(worm, graph, paper) {
     const segments = 6;
     const baseHeight = 30;
 
+
+    const pixelLength = 60;
     const lengthPercent = attachment.lengthPercent || 10;
     const heightPercent = attachment.heightPercent || 50;
-
-    const thinning = link.attr('line/organicStrokeThinning') || 0;
-    let organicSize = link.attr('line/organicStrokeSize') || baseHeight;
-
-    if (thinning !== 0) {
-        organicSize = organicSize + (organicSize + (link.attr('line/strokeWidth') || 2)) / 2;
-    }
-
+    const totalLength = connection.length();
+    //const wormLength = pixelLength / totalLength; // convert px to ratio 
     const wormLength = (lengthPercent / 100) / 2;
     const step = wormLength / segments;
-    const safeRatio = Math.max(wormLength, Math.min(1 - wormLength, ratio));
+    const safeRatio = Math.max(
+        wormLength,
+        Math.min(1 - wormLength, ratio)
+    );
+
+    const thinning = link.attr('line/organicStrokeThinning') || 0;
+    let organicSize = (link.attr('line/organicStrokeSize') || baseHeight);
+    if (thinning != 0) {
+        organicSize = organicSize + (organicSize + link.attr('line/strokeWidth')) / 2;
+    }
+    const top = [];
+    const bottom = [];
+
+    for (let i = -segments; i <= segments; i++) {
+        let r = safeRatio + i * step;
+        // let r = ratio + i *step;// 0.01;
+        //r = Math.max(0, Math.min(1, r));
+        const p = connection.pointAt(r);
+        if (!p) continue;
+
+        const delta = step / 2;//0.002;
+        const before = connection.pointAt(Math.max(0, r - delta));
+        const after = connection.pointAt(Math.min(1, r + delta));
+        if (!before || !after) continue;
+
+        const dx = after.x - before.x;
+        const dy = after.y - before.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (!len) continue;
+
+        const perpX = -dy / len;
+        const perpY = dx / len;
+        const height = organicSize * (1 - thinning * r);
+        top.push(`${p.x + perpX * height / 2},${p.y + perpY * height / 2}`);
+        bottom.unshift(`${p.x - perpX * height / 2},${p.y - perpY * height / 2}`);
+    }
+
+    const pathD = `M ${top.join(' L ')} L ${bottom.join(' L ')} Z`;
+
+    worm.attr('body/d', pathD);
+    //linkView.removeTools();
+    LoadGridData(graph.toJSON());
+}
+export function insertStentOnLink(link, ratio, color, graph, paper, joint) {
+    graph.startBatch();
+    const linkView = paper.findViewByModel(link);
+    if (!linkView) return;
+    const stent = new joint.shapes.custom.Stent();
+    //stent.attr('body/fill', color);
+    stent.set('linkAttachment', {
+        linkId: link.id,
+        ratio,
+        lengthPercent: 10, // default to 10% of link length, can be adjusted
+        widthMM:10,
+    });
+
+    graph.addCell(stent);
+    updateStentShape(stent, graph, paper);
+    addNoteToElement.addNoteToElement(graph, paper, joint, stent);
+    graph.stopBatch();
+    linkView.removeTools();
+}
+export function updateStentShape(stent, graph, paper) {
+
+    const attachment = stent.get('linkAttachment');
+    if (!attachment) return;
+
+    const link = graph.getCell(attachment.linkId);
+    if (!link) return;
+
+    const linkView = paper.findViewByModel(link);
+    if (!linkView) return;
+
+    const connection = linkView.getConnection();
+    if (!connection) return;
+
+    // 🚀 CRITICAL FIX
+    stent.position(0, 0);
+    stent.rotate(0);
+
+    const ratio = attachment.ratio;
+    const segments = 6;
+    const baseHeight = 30;
+
+
+    const pixelLength = 60;
+    const lengthPercent = attachment.lengthPercent || 10;
+    const heightPercent = attachment.heightPercent || 50;
+    const totalLength = connection.length();
+    //const wormLength = pixelLength / totalLength; // convert px to ratio 
+    const stentLength = (lengthPercent / 100) / 2;
+    const step = stentLength / segments;
+    const safeRatio = Math.max(
+        stentLength,
+        Math.min(1 - stentLength, ratio)
+    );
+
+    const thinning = link.attr('line/organicStrokeThinning') || 0;
+    let organicSize = (link.attr('line/organicStrokeSize') || baseHeight);
+    if (thinning != 0) {
+        organicSize = organicSize + (organicSize + link.attr('line/strokeWidth')) / 2;
+    }
+    const top = [];
+    const bottom = [];
+
+    for (let i = -segments; i <= segments; i++) {
+        let r = safeRatio + i * step;
+        // let r = ratio + i *step;// 0.01;
+        //r = Math.max(0, Math.min(1, r));
+        const p = connection.pointAt(r);
+        if (!p) continue;
+
+        const delta = step / 2;//0.002;
+        const before = connection.pointAt(Math.max(0, r - delta));
+        const after = connection.pointAt(Math.min(1, r + delta));
+        if (!before || !after) continue;
+
+        const dx = after.x - before.x;
+        const dy = after.y - before.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (!len) continue;
+
+        const perpX = -dy / len;
+        const perpY = dx / len;
+        const height = organicSize * (1 - thinning * r);
+        top.push(`${p.x + perpX * height / 2},${p.y + perpY * height / 2}`);
+        bottom.unshift(`${p.x - perpX * height / 2},${p.y - perpY * height / 2}`);
+    }
+
+    const pathD = `M ${top.join(' L ')} L ${bottom.join(' L ')} Z`;
+
+    stent.attr('body/d', pathD);
+    generateStentMesh(
+        stent,
+        connection,
+        safeRatio,
+        stentLength,
+        organicSize,
+        thinning
+    );
+    //linkView.removeTools();
+    LoadGridData(graph.toJSON());
+}
+function generateStentMesh(stent, connection, centerRatio, length, vesselWidth, thinning = 0) {
+
+    const totalLength = connection.length();
+    const stentPixelLength = totalLength * (length * 2);
+
+    // spacing proportional to vessel width
+    const zigSpacing = vesselWidth * 0.3;
+
+    // compute segment count
+    let zigSegments = Math.round(stentPixelLength / zigSpacing);
+
+    // ensure even
+    if (zigSegments % 2 !== 0) zigSegments++;
+
+    // clamp
+    zigSegments = Math.max(8, Math.min(zigSegments, 60));
 
     const topPoints = [];
     const bottomPoints = [];
 
-    let avgStroke = 0;
-    let count = 0;
+    for (let i = 0; i <= zigSegments; i++) {
 
-    for (let i = -segments; i <= segments; i++) {
-        const r = safeRatio + i * step;
+        const r = centerRatio - length + (i / zigSegments) * (length * 2);
         const p = connection.pointAt(r);
         if (!p) continue;
 
-        const delta = step / 2;
+        const delta = 0.002;
         const before = connection.pointAt(Math.max(0, r - delta));
         const after = connection.pointAt(Math.min(1, r + delta));
         if (!before || !after) continue;
@@ -214,35 +367,23 @@ export function updateWormShape(worm, graph, paper) {
         const perpX = -dy / len;
         const perpY = dx / len;
 
-        // Thinning along the link
-        const localSize = organicSize * (1 - thinning * r);
+        // 🔹 Apply thinning like the body
+        const currentHeight = vesselWidth * (1 - thinning * r) * 0.35;
 
-        // Stroke thickness
-        const strokeWidth = (heightPercent / 100) * localSize / 2;
+        const offset = (i % 2 === 0 ? currentHeight : -currentHeight);
 
-        // Offset to keep worm inside link
-        const offset = (localSize - strokeWidth) / 2;
-
+        // top zig
         topPoints.push(`${p.x + perpX * offset},${p.y + perpY * offset}`);
-        bottomPoints.unshift(`${p.x - perpX * offset},${p.y - perpY * offset}`);
 
-        avgStroke += strokeWidth;
-        count++;
+        // bottom zig
+        bottomPoints.push(`${p.x - perpX * offset},${p.y - perpY * offset}`);
     }
 
-    if (!topPoints.length || !bottomPoints.length) return;
+    const meshPath = `M ${topPoints.join(' L ')} M ${bottomPoints.join(' L ')}`;
 
-    const pathD = `M ${topPoints.join(' L ')} L ${bottomPoints.join(' L ')} Z`;
-    const finalStrokeWidth = avgStroke / count;
-
-    worm.attr({
-        body: {
-            d: pathD,
-            strokeWidth: finalStrokeWidth
-        }
-    });
+    stent.attr('mesh/d', meshPath);
 }
-export function insertRectangleOnLink(link,ratio,x,y,graph, paper,Rectangle,joint,isRestoring) {
+export function insertRectangleOnLink(link, ratio, x, y, graph, paper, Rectangle, joint, isRestoring) {
     graph.startBatch();
     const linkView = paper.findViewByModel(link);
     if (!linkView) return;
@@ -261,12 +402,12 @@ export function insertRectangleOnLink(link,ratio,x,y,graph, paper,Rectangle,join
     });
 
     graph.addCell(rect);
-    updateRectanglePosition(rect, graph, paper,joint,isRestoring);
+    updateRectanglePosition(rect, graph, paper, joint, isRestoring);
     graph.stopBatch();
 }
 export function updateRectanglePosition(rect, graph, paper, joint, isRestoring) {
 
-      const attachment = rect.get('linkAttachment');
+    const attachment = rect.get('linkAttachment');
     if (!attachment) return;
 
     const link = graph.getCell(attachment.linkId);
@@ -283,23 +424,23 @@ export function updateRectanglePosition(rect, graph, paper, joint, isRestoring) 
     // 🔹 Use let so ratio can be adjusted
     let ratio = attachment.ratio;
 
-    // // 🔹 Ensure no overlap with other rectangles on same link
-    // const existingRects = graph.getElements().filter(el => {
-    //     const a = el.get('linkAttachment');
-    //     return a && a.linkId === link.id && el.id !== rect.id;
-    // });
+    // 🔹 Ensure no overlap with other rectangles on same link
+    const existingRects = graph.getElements().filter(el => {
+        const a = el.get('linkAttachment');
+        return a && a.linkId === link.id && el.id !== rect.id;
+    });
 
-    // const minDistance = rect.size().width / totalLength; // minimum spacing along link
+    const minDistance = rect.size().width / totalLength; // minimum spacing along link
 
-    // existingRects.forEach(el => {
-    //     const r = el.get('linkAttachment').ratio;
-    //     if (Math.abs(r - ratio) < minDistance) {
-    //         if (ratio < r) ratio = r - minDistance;
-    //         else ratio = r + minDistance;
-    //     }
-    // });
+    existingRects.forEach(el => {
+        const r = el.get('linkAttachment').ratio;
+        if (Math.abs(r - ratio) < minDistance) {
+            if (ratio < r) ratio = r - minDistance;
+            else ratio = r + minDistance;
+        }
+    });
 
-    // ratio = Math.max(0, Math.min(1, ratio)); // clamp between 0 and 1
+    ratio = Math.max(0, Math.min(1, ratio)); // clamp between 0 and 1
 
     // 🔹 Store updated ratio
     //rect.set('linkAttachment', { linkId: link.id, ratio });
@@ -314,9 +455,9 @@ export function updateRectanglePosition(rect, graph, paper, joint, isRestoring) 
     if (!point) return;
 
     // compute tangent manually
-    const delta =  0.002;
+    const delta = 0.002;
     const before = connection.pointAt(Math.max(0, ratio - delta));
-    const after  = connection.pointAt(Math.min(1, ratio + delta));
+    const after = connection.pointAt(Math.min(1, ratio + delta));
     if (!before || !after) return;
 
     const tangent = { x: after.x - before.x, y: after.y - before.y };
@@ -346,8 +487,8 @@ export function updateRectanglePosition(rect, graph, paper, joint, isRestoring) 
     const baseHeight = 30;
 
     const dynamicHeight = baseHeight - (curvature * totalLength * 0.1);//baseHeight - (curvature * 40);
-// const localLength = Math.sqrt((after.x - before.x)**2 + (after.y - before.y)**2);
-// const dynamicHeight = Math.max(12, Math.min(baseHeight, localLength*0.8, baseHeight - curvature*totalLength*0.1));
+    // const localLength = Math.sqrt((after.x - before.x)**2 + (after.y - before.y)**2);
+    // const dynamicHeight = Math.max(12, Math.min(baseHeight, localLength*0.8, baseHeight - curvature*totalLength*0.1));
 
     const finalHeight = Math.max(12, dynamicHeight);
 
@@ -358,4 +499,79 @@ export function updateRectanglePosition(rect, graph, paper, joint, isRestoring) 
         point.y - finalHeight / 2
     );
     rect.rotate(angle, true);
+    LoadGridData(graph.toJSON());
+}
+
+export function LoadGridData(graphJSON) {
+
+    const cells = graphJSON.cells || graphJSON;
+
+    const linkMap = new Map();
+    const noteMap = new Map();
+    const results = [];
+
+    // -------- Pass 1 : index links + notes --------
+    for (const cell of cells) {
+
+        if (cell.type === "Branch") {
+            linkMap.set(cell.id, cell);
+        }
+
+        if (cell.type === "custom.FormNote") {
+            noteMap.set(cell.id, cell);
+        }
+    }
+
+    // -------- Pass 2 : process custom shapes --------
+    for (const cell of cells) {
+
+        if (cell.type !== "custom.UpBottomStroke" &&
+            cell.type !== "custom.Worm"
+            && cell.type !== "custom.Stent") continue;
+
+        const linkId = cell.linkAttachment?.linkId;
+        const ratio = cell.linkAttachment?.ratio;
+
+        const link = linkMap.get(linkId);
+        if (!link) continue;
+
+        let vesselName = null;
+
+        if (link.labels) {
+            for (const label of link.labels) {
+
+                const min = label.range?.min ?? 0;
+                const max = label.range?.max ?? 1;
+
+                if (ratio >= min && ratio <= max) {
+                    vesselName = label.attrs?.labelText?.text;
+                    break;
+                }
+            }
+        }
+        const noteId = cell.attachedNotes?.[0]?.noteId;
+        const formNote = noteMap.get(noteId);
+
+        const hpercent = cell.linkAttachment?.heightPercent;// formNote?.vesselHeightInput ?? null;
+        const lpercent = cell.linkAttachment?.lengthPercent;//formNote?.vesselLengthInput ?? null;
+        const widthMM = cell.linkAttachment?.widthMM;
+        let objectName = '';
+        if (cell.type.replace("custom.", "") === 'Worm') {
+            objectName = 'Oclusion';
+        } else if (cell.type.replace("custom.", "") === 'UpBottomStroke') {
+            objectName = 'Stenosis';
+        } else {
+            objectName = cell.type.replace("custom.", "");
+        }
+        results.push({
+            vessel: vesselName,
+            object: objectName,
+            hpercent: hpercent,
+            lpercent: lpercent,
+            widthMM: widthMM,
+        });
+    }
+    $("#vesselGrid").data("kendoGrid").dataSource.data(results);
+    //console.log(results);
+    //return results;
 }

@@ -23,7 +23,7 @@
     </div>
     <div id="link-color-menu" class="context-menu">
         <ul>
-            <li>
+            <!-- <li>
                 Color
                 <ul>
                     <li data-color="#ff0000">Red</li>
@@ -31,12 +31,13 @@
                     <li data-color="#0055ff">Blue</li>
                     <li data-color="#000000">Black</li>
                 </ul>
-            </li>
+            </li> -->
             <li data-action="hide-label">Hide Labels</li>
             <li data-action="show-label">Show Labels</li>
-            <li data-action="add-rectangle">Add Rectangle</li> 
-            <li data-action="divide-segment">Divide Segment</li> 
+            <!-- <li data-action="add-rectangle">Add Rectangle</li> -->
+            <!-- <li data-action="divide-segment">Divide Segment</li> -->
             <li data-action="add-worm" data-color="#000000">Oclusion</li>
+            <li data-action="add-stent" data-color="#000000">Stent</li>
             <li data-action="add-up-bottom-stroke">Stenosis</li>
         </ul>
     </div>
@@ -44,15 +45,50 @@
         <button id="saveBtn">Save Diagram</button>
         <button id="loadBtn">Load Diagram</button>
         <button id="insertBtn">Insert Stents</button>
+        <button id="addRetrogradeFlowBtn">Add Retrograde Flow</button>
         <button id="addCABGBtn">Add CABG</button>
         <button id="undoBtn">Undo</button>
         <button id="redoBtn">Redo</button>
     </div>
-    <div id="paper-wrapper">
-        <div id="paper">
-            
+    <div class="row">
+    <div class="col-md-5">
+        @(Html.Kendo().Grid<dynamic>()
+                .Name("vesselGrid")
+                .Columns(columns =>
+                {
+                    columns.Bound("vessel").Title("Artery/Segment");
+                    columns.Bound("object").Title("Object");
+                    columns.Bound("hpercent").Title("Percentage");
+                    columns.Bound("lpercent").Title("Length");
+                    columns.Bound("widthMM").Title("Width (mm)");
+                })
+                .HtmlAttributes(new { @class = "height-100-percent" })
+                .Scrollable()
+                .Sortable()
+                .NoRecords(a => a.Template(Html.Kendo().Template().AddHtml("${ gridNoRecords('No Recent Patients Found') }")))
+                .Selectable(selectable => selectable.Mode(GridSelectionMode.Single))
+                .Resizable(resize => resize.Columns(true))
+                .Reorderable(reorder => reorder.Columns(true))
+                .DataSource(ds => ds
+                .Ajax()
+                .Model(m =>
+                {
+                    m.Field("vessel", typeof(string));
+                    m.Field("object", typeof(string));
+                    m.Field("hpercent", typeof(int));
+                    m.Field("lpercent", typeof(int));
+                    m.Field("widthMM", typeof(int));
+                })
+                )
+                )
+    </div>
+    <div class="col-md-7">
+        <div id="diagram-paper-wrapper">
+            <div id="paper">
+            </div>
         </div>
     </div>
+</div>
     <script src="dist/bundle.js"></script>
 </body>
 </html>

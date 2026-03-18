@@ -571,7 +571,7 @@ export function LoadGridData(graphJSON) {
             widthMM: widthMM,
         });
     }
-    $("#vesselGrid").data("kendoGrid").dataSource.data(results);
+    //$("#vesselGrid").data("kendoGrid").dataSource.data(results);
     //console.log(results);
     //return results;
 }

@@ -6,6 +6,8 @@ import * as insertObjectInsideLink from './insertObjectInsideLink.js';
 import * as splitLinkAndInertObject from './splitLinkAndInertObject.js';
 import * as restoreFromSnapshot from './restoreFromSnapshot.js';
 import * as addNoteToElement from './addNoteToElement.js';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap';
 import './styles.css';
 const { TangentDirections } = joint.connectors.curve;
 const borderWidth = 4;

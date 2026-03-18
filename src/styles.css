@@ -1,0 +1,158 @@
+body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+}
+
+.joint-tool[data-tool-name="button"] circle {
+    stroke: #131e29;
+    stroke-width: 1;
+    fill: #f6f740;
+}
+
+.joint-tool[data-tool-name="button"] path {
+    stroke: #131e29;
+}
+
+.joint-tool[data-tool-name="source-anchor"] circle,
+.joint-tool[data-tool-name="target-anchor"] circle,
+.joint-tool[data-tool-name="vertices"] circle {
+    stroke: #131e29;
+    stroke-width: 1.5;
+    fill: #f7a1a8;
+}
+
+.context-menu {
+    position: absolute;
+    background: #222;
+    color: #fff;
+    border-radius: 6px;
+    box-shadow: 0 8px 20px rgba(0,0,0,.35);
+    display: none;
+    z-index: 9999;
+    min-width: 160px;
+    font-family: sans-serif;
+}
+.context-menu ul {
+    list-style: none;
+    margin: 0;
+    padding: 6px 0;
+}
+
+.context-menu li {
+    position: relative;
+    padding: 8px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.context-menu li:hover {
+    background: #444;
+}
+
+.context-menu li > ul {
+    position: absolute;
+    top: -6px;
+    left: 100%;
+    background: #222;
+    border-radius: 6px;
+    box-shadow: 0 8px 20px rgba(0,0,0,.35);
+    display: none;
+    min-width: 140px;
+    padding: 6px 0;
+}
+.context-menu li:hover > ul,
+.context-menu li > ul:hover {
+    display: block;
+}
+.context-menu li > ul li {
+    padding: 8px 14px;
+}
+.context-menu li > ul li:hover {
+    background: #555;
+}
+.context-menu li:has(ul)::after {
+    content: "▶";
+    position: absolute;
+    right: 10px;
+    font-size: 10px;
+    opacity: 0.7;
+}
+.context-menu {
+    position: fixed;
+    z-index: 99999;
+}
+#diagram-paper-wrapper {
+    width: 540px;
+    height: 540px;
+    margin: 35px auto auto auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: visible;
+}
+
+#paper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    /* background: url('assets/Coronary_arteries.svg') center center no-repeat; */
+    background-size: contain;
+    overflow: visible;
+    /* scale instead of zoom */
+    /* transform: scale(1.5); */
+    transform-origin: center center; /* scale from center */
+}
+
+.joint-link path {
+    filter: drop-shadow(2px 3px 4px rgba(0,0,0,0.4));
+}
+
+#diagramBtncontrols {
+    position: fixed;
+    top: 0px;
+    right: 48px;
+    z-index: 1000;
+    background: rgba(255,255,255,0.9);
+    padding: 5px 10px;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+#diagramBtncontrols button {
+    margin-right: 5px;
+}
+.FormNoteViewDiv {
+    box-sizing: border-box;
+    background: #fffbe6;
+    border: 2px solid #333;
+    border-radius: 10px;
+    padding: 35px;
+    font-family: sans-serif;
+    font-size: 28px;
+    display: flex;
+    flex-direction: column;
+    /* justify-content: center; */
+    gap: 20px;
+    width: fit-content;
+}
+.FormNoteViewInnerDiv {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+.FormNoteViewInnerDiv label {
+    font-weight: bold;
+    margin-right: 10px;
+}
+.FormNoteViewInnerDiv input {
+    padding: 8px;
+    font-size: 28px;
+}
+.form-note-container {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+}
+.FormNoteViewDiv > label {
+    font-size: 45px;
+    font-weight: bold;
+}

@@ -19,7 +19,7 @@ function getExistingNoteRects(graph) {
             };
         });
 }
-export function addNoteToElement(graph,paper,joint,element) {
+export function addNoteToElement(graph, paper, joint, element) {
     const existingNotes = element.get('attachedNotes') || [];
     if (existingNotes.length > 0) {
         console.warn('Element already has a note. Skipping.');
@@ -29,17 +29,17 @@ export function addNoteToElement(graph,paper,joint,element) {
     const noteWidth = 350;
     const noteHeight = 150;
 
-    let noteX=0, noteY=0;
+    let noteX = 0, noteY = 0;
 
     const elementslink = graph.getCell(element.get('linkAttachment').linkId);
     const linkView = paper.findViewByModel(elementslink);
     const point = linkView.getPointAtRatio(element.get('linkAttachment').ratio);
     const x = point.x;
     const y = point.y;
-    if(x>=900){
-        noteX=1800
-    }else{
-        noteX=-200
+    if (x >= 900) {
+        noteX = 1800
+    } else {
+        noteX = -200
     }
     let newRect = {
         x: noteX,
@@ -55,7 +55,7 @@ export function addNoteToElement(graph,paper,joint,element) {
     }
     noteY = newRect.y;
     const note = new joint.shapes.custom.FormNote({
-       position: {
+        position: {
             x: noteX, //x + element.size().width + 20,//40
             y: noteY
         },
@@ -63,6 +63,7 @@ export function addNoteToElement(graph,paper,joint,element) {
         isNote: true,
         vesselLengthValue: element.get('linkAttachment').lengthPercent || 10,
         vesselHeightInput: element.get('linkAttachment').heightPercent || 50,
+        vesselWidthInput: element.get('linkAttachment').widthMM || 0,
     });
     note.set('attachedTo', element.id);
     graph.addCell(note);
@@ -76,7 +77,7 @@ export function addNoteToElement(graph,paper,joint,element) {
     });
 
     graph.addCell(link);
-     // 🌟 Save reference on element so we can delete later
+    // 🌟 Save reference on element so we can delete later
     const notes = element.get('attachedNotes') || [];
     notes.push({ noteId: note.id, linkId: link.id });
     element.set('attachedNotes', notes);
